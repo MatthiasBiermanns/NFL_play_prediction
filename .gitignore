@@ -3,7 +3,7 @@
 *.zip
 *.csv
 
-.venv
-poetry.lock
-pyproject.toml
-README.md
+'.venv'
+'poetry.lock'
+'pyproject.toml'
+'README.md'
