@@ -2,3 +2,8 @@
 *.xls
 *.zip
 *.csv
+
+.venv
+poetry.lock
+pyproject.toml
+README.md

@@ -1,5 +1,1 @@
 '*.csv' filter=lfs diff=lfs merge=lfs -text
-'.venv'
-'poetry.lock'
-'pyproject.toml'
-'README.md'
