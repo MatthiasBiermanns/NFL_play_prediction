@@ -1,0 +1,19 @@
+[tool.poetry]
+name = "nfl-play-prediction"
+version = "0.1.0"
+description = ""
+authors = ["Thilo <thilo.viktorin@gmx.de>"]
+readme = "README.md"
+
+[tool.poetry.dependencies]
+python = ">=3.11,<3.13"
+pandas = "^2.1.2"
+scikit-learn = "^1.3.2"
+
+
+[tool.poetry.group.dev.dependencies]
+ipykernel = "^6.26.0"
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
