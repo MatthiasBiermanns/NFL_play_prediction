@@ -355,6 +355,8 @@
     "desc",
     "series",
     "interception",
-    "fumble"
+    "fumble",
+    "qb_scramble",
+    "qb_hit"
   ]
 }
