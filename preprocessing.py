@@ -222,4 +222,7 @@ class NFLPreprocessing(AbstractNFLPreprocessing):
         return super().outlier_removal()
 
     def make_pipeline(self):
-        return super().make_pipeline()
+        pipeline = Pipeline(
+            [("feature_encoding", self.encoder), ("normalization", self.normalizer)]
+        )
+        return
