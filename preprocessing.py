@@ -6,14 +6,14 @@ from sklearn.preprocessing import OneHotEncoder, MinMaxScaler, StandardScaler
 from sklearn.compose import ColumnTransformer
 from loguru import logger
 
-# configure logging to write logs to a file and console
-logger.add("app.log", rotation="500 MB", level="INFO")
-logger.add(console=True, level="INFO")
+# configure logging to write to console
+# logger.add(console=True, level="INFO")
 
 
 class AbstractNFLPreprocessing(ABC):
     def __init__(self, csv_file_list: list, test_size: float = 0.25) -> None:
         super().__init__()
+        logger.info("--- Loading Preprocessing Steps ---")
         self.combined_df = None
         self.run_df = None
         self.pass_df = None
@@ -34,6 +34,7 @@ class AbstractNFLPreprocessing(ABC):
             self.pass_df, test_size
         )
         self.encoder = self.encoding_of_categorical_features()
+        logger.info("--- Successfully Loaded Preprocessing Steps ---")
 
     @abstractmethod
     def make_combined_df(self, csv_file_list):
@@ -220,6 +221,8 @@ class NFLPreprocessing(AbstractNFLPreprocessing):
         # Split the DataFrame
         test_df = df.head(split_size)
         training_df = df.tail(len(df) - split_size)
+        test_df.reset_index(inplace=True)
+        training_df.reset_index(inplace=True)
         logger.info("Successfully split into train and test dataframes")
         return test_df, training_df
 
