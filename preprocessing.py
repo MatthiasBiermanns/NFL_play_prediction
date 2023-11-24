@@ -6,21 +6,24 @@ from sklearn.preprocessing import OneHotEncoder, MinMaxScaler, StandardScaler
 from sklearn.compose import ColumnTransformer
 from loguru import logger
 
-# configure logging to write to console
-# logger.add(console=True, level="INFO")
-
 
 class AbstractNFLPreprocessing(ABC):
     def __init__(self, csv_file_list: list, test_size: float = 0.25) -> None:
         super().__init__()
         logger.info("--- Loading Preprocessing Steps ---")
+        # initialization
         self.combined_df = None
         self.run_df = None
         self.pass_df = None
+        self.run_test = None
+        self.run_train = None
+        self.pass_test = None
+        self.pass_train = None
         self.encoder = None
         self.normalizer = None
-        self.outlier_remover = None
         self.pipeline = None
+
+        # apply preprocessing steps
         self.make_combined_df(csv_file_list)
         self.drop_irrelevant_observations()
         self.insert_missing_values()
@@ -246,10 +249,11 @@ class NFLPreprocessing(AbstractNFLPreprocessing):
 
         logger.info("Successfully normalized numerical features")
 
-    def outlier_removal(self):
+    def outlier_removal(self, training_df):
         logger.info("Removing outliers")
-        self.outlier_remover = None
+        # TODO @ Joel
         logger.info("Successfully removed outliers")
+        return training_df
 
     def make_pipeline(self):
         pipeline = Pipeline(
