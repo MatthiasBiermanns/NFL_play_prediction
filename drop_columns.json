@@ -353,6 +353,8 @@
     "weather",
     "game_date",
     "desc",
-    "series"
+    "series",
+    "interception",
+    "fumble"
   ]
 }
