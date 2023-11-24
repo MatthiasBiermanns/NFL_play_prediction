@@ -95,11 +95,13 @@ class NFLPreprocessing(AbstractNFLPreprocessing):
         self.combined_df = pd.concat(dataframes, axis=0)
         logger.info("Successfully loaded csv files")
 
-    def drop_irrelevant_observations(self, dataframe):
+    def drop_irrelevant_observations(self):
         logger.info("Removing irrelevant observations")
         # remove non-pass and non-run plays from dataframe
         self.combined_df.drop(
-            dataframe[~dataframe["play_type"].isin(["pass", "run"])].index,
+            self.combined_df[
+                ~self.combined_df["play_type"].isin(["pass", "run"])
+            ].index,
             axis=0,
             inplace=True,
         )
