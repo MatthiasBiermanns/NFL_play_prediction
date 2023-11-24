@@ -109,12 +109,6 @@ class NFLPreprocessing(AbstractNFLPreprocessing):
             axis=0,
             inplace=True,
         )
-        # drop safeties
-        self.combined_df.drop(
-            self.combined_df[self.combined_df["safety"] == 1].index,
-            axis=0,
-            inplace=True,
-        )
 
         # drop plays with penalties
         self.combined_df.drop(
@@ -126,11 +120,6 @@ class NFLPreprocessing(AbstractNFLPreprocessing):
         # drop plays with laterals
         self.combined_df.drop(
             self.combined_df[self.combined_df["lateral_reception"] == 1].index,
-            axis=0,
-            inplace=True,
-        )
-        self.combined_df.drop(
-            self.combined_df[self.combined_df["lateral_rush"] == 1].index,
             axis=0,
             inplace=True,
         )
