@@ -4,17 +4,27 @@ import json
 from sklearn.pipeline import Pipeline
 from sklearn.preprocessing import OneHotEncoder
 from sklearn.compose import ColumnTransformer
+from sklearn.model_selection import train_test_split
 
 
 class AbstractNFLPreprocessing(ABC):
-    def __init__(self, csv_file_list: list) -> None:
+    def __init__(self, csv_file_list: list, test_size: float = 0.25) -> None:
         super().__init__()
         self.combined_df = None
+        self.run_df = None
+        self.pass_df = None
         self.make_combined_df()
         self.drop_irrelevant_observations()
         self.impute_missing_values()
         self.drop_irrelevant_features()
         self.clear_nas()
+        self.split_into_run_and_pass_dataframes()
+        self.run_test, self.run_train = self.split_into_test_and_training_dataframes(
+            self.run_df, test_size
+        )
+        self.pass_test, self.pass_train = self.split_into_test_and_training_dataframes(
+            self.pass_df, test_size
+        )
         self.encoder = self.encoding_of_categorical_features()
 
     @abstractmethod
@@ -42,7 +52,7 @@ class AbstractNFLPreprocessing(ABC):
         pass
 
     @abstractmethod
-    def split_into_test_and_training_dataframes(self):
+    def split_into_test_and_training_dataframes(self, df, test_size):
         pass
 
     @abstractmethod
@@ -73,7 +83,7 @@ class NFLPreprocessing(AbstractNFLPreprocessing):
     def make_combined_df(self, csv_file_list):
         # load each csv file as a dataframe and collect them in a list
         dataframes = []
-        for csv_file in csv_files:
+        for csv_file in csv_file_list:
             df = pd.read_csv(csv_file)
             dataframes.append(df)
         # combine all dataframes into a single one
@@ -172,3 +182,22 @@ class NFLPreprocessing(AbstractNFLPreprocessing):
             remainder="passthrough",  # include non-transformed columns
         )
         return encoder
+
+    def split_into_run_and_pass_dataframes(self):
+        self.run_df = self.combined_df[self.combined_df["play_type"] == "run"]
+        self.pass_df = self.combined_df[self.combined_df["play_type"] == "pass"]
+
+    def split_into_test_and_training_dataframes(self, df, test_size):
+        # set seed for reproducability
+        seed = 1887  # nur der HSV
+
+        # Shuffle the DataFrame
+        df = df.sample(frac=1, random_state=seed)
+
+        # calculate size of test df
+        split_size = int(test_size * len(df))
+
+        # Split the DataFrame
+        test_df = df.head(split_size)
+        training_df = df.tail(len(df) - split_size)
+        return test_df, training_df
