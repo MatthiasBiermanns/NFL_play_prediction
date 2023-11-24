@@ -4,6 +4,11 @@ import json
 from sklearn.pipeline import Pipeline
 from sklearn.preprocessing import OneHotEncoder, MinMaxScaler, StandardScaler
 from sklearn.compose import ColumnTransformer
+from loguru import logger
+
+# configure logging to write logs to a file and console
+logger.add("app.log", rotation="500 MB", level="INFO")
+logger.add(console=True, level="INFO")
 
 
 class AbstractNFLPreprocessing(ABC):
@@ -18,7 +23,7 @@ class AbstractNFLPreprocessing(ABC):
         self.pipeline = None
         self.make_combined_df(csv_file_list)
         self.drop_irrelevant_observations()
-        self.impute_missing_values()
+        self.insert_missing_values()
         self.drop_irrelevant_features()
         self.clear_nas()
         self.split_into_run_and_pass_dataframes()
@@ -39,7 +44,7 @@ class AbstractNFLPreprocessing(ABC):
         pass
 
     @abstractmethod
-    def impute_missing_values(self):
+    def insert_missing_values(self):
         pass
 
     @abstractmethod
@@ -80,6 +85,7 @@ class NFLPreprocessing(AbstractNFLPreprocessing):
         super().__init__(file_list)
 
     def make_combined_df(self, csv_file_list):
+        logger.info("Loading csv files")
         # load each csv file as a dataframe and collect them in a list
         dataframes = []
         for csv_file in csv_file_list:
@@ -87,8 +93,10 @@ class NFLPreprocessing(AbstractNFLPreprocessing):
             dataframes.append(df)
         # combine all dataframes into a single one
         self.combined_df = pd.concat(dataframes, axis=0)
+        logger.info("Successfully loaded csv files")
 
     def drop_irrelevant_observations(self, dataframe):
+        logger.info("Removing irrelevant observations")
         # remove non-pass and non-run plays from dataframe
         self.combined_df.drop(
             dataframe[~dataframe["play_type"].isin(["pass", "run"])].index,
@@ -134,19 +142,19 @@ class NFLPreprocessing(AbstractNFLPreprocessing):
             axis=0,
             inplace=True,
         )
+        logger.info("Successfully deleted irrelevant observations")
 
-    def impute_missing_values(self):
-        # please refer to imputation.txt for source
-        with open("roof_imputations.json") as file:
-            imputations = json.load(file)
+    def insert_missing_values(self):
+        logger.info("Imputing missing values")
+        # please refer to insertion.txt for source of values
+        with open("roof_insertion.json") as file:
+            insertion = json.load(file)
 
             def update_roof(row):
-                if any(
-                    game_id in row["game_id"] for game_id in imputations["open_roof"]
-                ):
+                if any(game_id in row["game_id"] for game_id in insertion["open_roof"]):
                     return "open"
                 if any(
-                    game_id in row["game_id"] for game_id in imputations["closed_roof"]
+                    game_id in row["game_id"] for game_id in insertion["closed_roof"]
                 ):
                     return "closed"
                 return row["roof"]
@@ -157,17 +165,23 @@ class NFLPreprocessing(AbstractNFLPreprocessing):
             ] = self.combined_df[self.combined_df["roof"].isna()].apply(
                 update_roof, axis=1
             )
+            logger.info("Successfully inserted missing values")
 
     def drop_irrelevant_features(self):
+        logger.info("Dropping irrelevant features")
         with open("drop_columns.json") as file:
             column_drop_dict = json.load(file)
             for drop_column_list in column_drop_dict.values():
                 self.combined_df.drop(drop_column_list, axis=1, inplace=True)
+        logger.info("Successfully dropped irrelevant features")
 
     def clear_nas(self):
+        logger.info("Claering obervations with NAs")
         self.combined_df.dropna(inplace=True)
+        logger.info("Successfully cleared observations with NAs")
 
     def encoding_of_categorical_features(self):
+        logger.info("Encoding categorical features")
         # create ColumnTransformer
         encoder = ColumnTransformer(
             transformers=[
@@ -180,13 +194,18 @@ class NFLPreprocessing(AbstractNFLPreprocessing):
             ],
             remainder="passthrough",  # include non-transformed columns
         )
+
+        logger.info("Successfully encoded categorical features")
         return encoder
 
     def split_into_run_and_pass_dataframes(self):
+        logger.info("Splitting into run and pass dataframes")
         self.run_df = self.combined_df[self.combined_df["play_type"] == "run"]
         self.pass_df = self.combined_df[self.combined_df["play_type"] == "pass"]
+        logger.info("Successfully split into run and pass dataframes")
 
     def split_into_test_and_training_dataframes(self, df, test_size):
+        logger.info("Splitting into train and test dataframes")
         # set seed for reproducability
         seed = 1887  # nur der HSV
 
@@ -199,9 +218,11 @@ class NFLPreprocessing(AbstractNFLPreprocessing):
         # Split the DataFrame
         test_df = df.head(split_size)
         training_df = df.tail(len(df) - split_size)
+        logger.info("Successfully split into train and test dataframes")
         return test_df, training_df
 
     def apply_normalization(self):
+        logger.info("Normalizing numerical features")
         numeric_features = [
             "yardline_100",
             "game_seconds_remaining",
@@ -218,11 +239,15 @@ class NFLPreprocessing(AbstractNFLPreprocessing):
             remainder="passthrough",  # include non-transformed columns
         )
 
+        logger.info("Successfully normalized numerical features")
+
     def outlier_removal(self):
-        return super().outlier_removal()
+        logger.info("Removing outliers")
+        self.outlier_remover = None
+        logger.info("Successfully removed outliers")
 
     def make_pipeline(self):
         pipeline = Pipeline(
             [("feature_encoding", self.encoder), ("normalization", self.normalizer)]
         )
-        return
+        return pipeline
