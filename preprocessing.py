@@ -2,9 +2,8 @@ from abc import ABC, abstractmethod
 import pandas as pd
 import json
 from sklearn.pipeline import Pipeline
-from sklearn.preprocessing import OneHotEncoder
+from sklearn.preprocessing import OneHotEncoder, MinMaxScaler, StandardScaler
 from sklearn.compose import ColumnTransformer
-from sklearn.model_selection import train_test_split
 
 
 class AbstractNFLPreprocessing(ABC):
@@ -13,6 +12,10 @@ class AbstractNFLPreprocessing(ABC):
         self.combined_df = None
         self.run_df = None
         self.pass_df = None
+        self.encoder = None
+        self.normalizer = None
+        self.outlier_remover = None
+        self.pipeline = None
         self.make_combined_df()
         self.drop_irrelevant_observations()
         self.impute_missing_values()
@@ -32,7 +35,7 @@ class AbstractNFLPreprocessing(ABC):
         pass
 
     @abstractmethod
-    def drop_useless_observations(self):
+    def drop_irrelevant_observations(self):
         pass
 
     @abstractmethod
@@ -57,10 +60,6 @@ class AbstractNFLPreprocessing(ABC):
 
     @abstractmethod
     def encoding_of_categorical_features(self):
-        pass
-
-    @abstractmethod
-    def get_feature_names_from_encoder(self):
         pass
 
     @abstractmethod
@@ -201,3 +200,26 @@ class NFLPreprocessing(AbstractNFLPreprocessing):
         test_df = df.head(split_size)
         training_df = df.tail(len(df) - split_size)
         return test_df, training_df
+
+    def apply_normalization(self):
+        numeric_features = [
+            "yardline_100",
+            "game_seconds_remaining",
+            "down",
+            "ydstogo",
+            "td_prob",
+            "wpa",
+        ]
+        self.normalizer = ColumnTransformer(
+            transformers=[
+                ("standardization", StandardScaler(), ["score_differential"]),
+                ("minmax", MinMaxScaler(), numeric_features),
+            ],
+            remainder="passthrough",  # include non-transformed columns
+        )
+
+    def outlier_removal(self):
+        return super().outlier_removal()
+
+    def make_pipeline(self):
+        return super().make_pipeline()
