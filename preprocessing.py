@@ -1,6 +1,9 @@
 from abc import ABC, abstractmethod
 import pandas as pd
 import json
+from sklearn.pipeline import Pipeline
+from sklearn.preprocessing import OneHotEncoder
+from sklearn.compose import ColumnTransformer
 
 
 class AbstractNFLPreprocessing(ABC):
@@ -10,6 +13,9 @@ class AbstractNFLPreprocessing(ABC):
         self.make_combined_df()
         self.drop_irrelevant_observations()
         self.impute_missing_values()
+        self.drop_irrelevant_features()
+        self.clear_nas()
+        self.encoder = self.encoding_of_categorical_features()
 
     @abstractmethod
     def make_combined_df(self, csv_file_list):
@@ -41,6 +47,10 @@ class AbstractNFLPreprocessing(ABC):
 
     @abstractmethod
     def encoding_of_categorical_features(self):
+        pass
+
+    @abstractmethod
+    def get_feature_names_from_encoder(self):
         pass
 
     @abstractmethod
@@ -118,51 +128,47 @@ class NFLPreprocessing(AbstractNFLPreprocessing):
 
     def impute_missing_values(self):
         # please refer to imputation.txt for source
-        closed_roof = [
-            "2021_01_JAX_HOU",
-            "2021_01_SEA_IND",
-            "2021_02_LA_IND",
-            "2021_03_CAR_HOU",
-            "2021_05_NE_HOU",
-            "2021_08_LA_HOU",
-            "2021_09_NYJ_IND",
-            "2021_10_JAX_IND",
-            "2021_11_NE_ATL",
-            "2021_12_NYJ_HOU",
-            "2021_12_TB_IND",
-            "2021_13_IND_HOU",
-            "2021_13_TB_ATL",
-            "2021_15_NE_IND",
-            "2021_16_LAC_HOU",
-            "2021_17_LV_IND",
-            "2021_18_NO_ATL",
-            "2021_18_TEN_HOU",
-        ]
+        with open("roof_imputations.json") as file:
+            imputations = json.load(file)
 
-        open_roof = [
-            "2021_01_PHI_ATL",
-            "2021_04_WAS_ATL",
-            "2021_06_HOU_IND",
-            "2021_08_CAR_ATL",
-            "2021_08_TEN_IND",
-            "2021_14_SEA_HOU",
-            "2021_16_DET_ATL",
-        ]
+            def update_roof(row):
+                if any(
+                    game_id in row["game_id"] for game_id in imputations["open_roof"]
+                ):
+                    return "open"
+                if any(
+                    game_id in row["game_id"] for game_id in imputations["closed_roof"]
+                ):
+                    return "closed"
+                return row["roof"]
 
-        def update_roof(row):
-            if any(game_id in row["game_id"] for game_id in open_roof):
-                return "open"
-            if any(game_id in row["game_id"] for game_id in closed_roof):
-                return "closed"
-            return row["roof"]
-
-        # Apply the function to update 'roof'
-        self.combined_df.loc[
-            self.combined_df["roof"].isna(), "roof"
-        ] = self.combined_df[self.combined_df["roof"].isna()].apply(update_roof, axis=1)
+            # Apply the function to update 'roof'
+            self.combined_df.loc[
+                self.combined_df["roof"].isna(), "roof"
+            ] = self.combined_df[self.combined_df["roof"].isna()].apply(
+                update_roof, axis=1
+            )
 
     def drop_irrelevant_features(self):
         with open("drop_columns.json") as file:
             column_drop_dict = json.load(file)
             for drop_column_list in column_drop_dict.values():
                 self.combined_df.drop(drop_column_list, axis=1, inplace=True)
+
+    def clear_nas(self):
+        self.combined_df.dropna(inplace=True)
+
+    def encoding_of_categorical_features(self):
+        # create ColumnTransformer
+        encoder = ColumnTransformer(
+            transformers=[
+                # ('encoder', OneHotEncoder(drop='first'), ['roof']) ],
+                (
+                    "encoder",
+                    OneHotEncoder(drop="first"),
+                    ["posteam", "posteam_type", "roof", "defteam"],
+                )
+            ],
+            remainder="passthrough",  # include non-transformed columns
+        )
+        return encoder
