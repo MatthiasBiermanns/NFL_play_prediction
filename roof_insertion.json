@@ -1,0 +1,32 @@
+{
+  "closed_roof": [
+    "2021_01_JAX_HOU",
+    "2021_01_SEA_IND",
+    "2021_02_LA_IND",
+    "2021_03_CAR_HOU",
+    "2021_05_NE_HOU",
+    "2021_08_LA_HOU",
+    "2021_09_NYJ_IND",
+    "2021_10_JAX_IND",
+    "2021_11_NE_ATL",
+    "2021_12_NYJ_HOU",
+    "2021_12_TB_IND",
+    "2021_13_IND_HOU",
+    "2021_13_TB_ATL",
+    "2021_15_NE_IND",
+    "2021_16_LAC_HOU",
+    "2021_17_LV_IND",
+    "2021_18_NO_ATL",
+    "2021_18_TEN_HOU"
+  ],
+
+  "open_roof": [
+    "2021_01_PHI_ATL",
+    "2021_04_WAS_ATL",
+    "2021_06_HOU_IND",
+    "2021_08_CAR_ATL",
+    "2021_08_TEN_IND",
+    "2021_14_SEA_HOU",
+    "2021_16_DET_ATL"
+  ]
+}
