@@ -16,7 +16,7 @@ class AbstractNFLPreprocessing(ABC):
         self.normalizer = None
         self.outlier_remover = None
         self.pipeline = None
-        self.make_combined_df()
+        self.make_combined_df(csv_file_list)
         self.drop_irrelevant_observations()
         self.impute_missing_values()
         self.drop_irrelevant_features()
