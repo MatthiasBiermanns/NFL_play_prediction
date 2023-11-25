@@ -200,7 +200,7 @@ class NFLPreprocessing(AbstractNFLPreprocessing):
             .reset_index()
         )
         self.pass_df = (
-            self.combined_df[self.combined_df["play_teype"] == "pass"]
+            self.combined_df[self.combined_df["play_type"] == "pass"]
             .drop("play_type", axis=1)
             .reset_index()
         )
