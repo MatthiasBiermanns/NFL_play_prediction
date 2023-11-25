@@ -289,18 +289,22 @@ class NFLPreprocessing(AbstractNFLPreprocessing):
         ]
 
     def get_dataframe_from_pipeline(
-        self, dataframe_transformed_by_pipeline: scipy.sparse._csr.csr_matrix
+        self,
+        pipeline: sklearn.pipeline.Pipeline(),
+        datafrme_to_be_transformed: pd.Dataframe,
     ) -> pd.DataFrame:
-        """requires the output of the pipeline.transform(pd.DataFrame) as input
-        and returns a pandas DataFrame with the feature names and the preprocessed features
-
+        """requires a pipeline without a model!
+        returns dataframe processed by pipeline with feature names
 
         Args:
-            dataframe_transformed_by_pipeline (scipy.sparse._csr.csr_matrix): output of pipeline.transform(pd.DataFrame)
+            pipeline (sklearn.pipeline.Pipeline): 
+            datafrme_to_be_transformed (pd.Dataframe): 
 
         Returns:
             pd.DataFrame: preprocessed dataframe with all feature names
         """
-        transformed = dataframe_transformed_by_pipeline.todense()
+        transformed = pipeline.transform(datafrme_to_be_transformed)
+        transformed = (
+            transformed.todense()
         feature_names = self.get_prepro_feature_names_from_pipeline()
         return pd.DataFrame(transformed, columns=feature_names)
