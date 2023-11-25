@@ -180,7 +180,6 @@ class NFLPreprocessing(AbstractNFLPreprocessing):
         # create ColumnTransformer
         encoder = ColumnTransformer(
             transformers=[
-                # ('encoder', OneHotEncoder(drop='first'), ['roof']) ],
                 (
                     "encoder",
                     OneHotEncoder(drop="first"),
@@ -246,6 +245,8 @@ class NFLPreprocessing(AbstractNFLPreprocessing):
 
     def make_pipeline(self):
         pipeline = Pipeline(
-            [("feature_encoding", self.encoder), ("normalization", self.normalizer)]
+            [
+                ("feature_encoding", self.encoder)
+            ]  # , ("normalization", self.normalizer)]
         )
         return pipeline
