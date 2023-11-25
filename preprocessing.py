@@ -5,6 +5,7 @@ from sklearn.pipeline import Pipeline
 from sklearn.preprocessing import OneHotEncoder, MinMaxScaler, StandardScaler
 from sklearn.compose import ColumnTransformer
 from loguru import logger
+import scipy
 
 
 class AbstractNFLPreprocessing(ABC):
@@ -271,5 +272,35 @@ class NFLPreprocessing(AbstractNFLPreprocessing):
         self.prepro_col_transf = ColumnTransformer(
             transformers=preprocessing, remainder="passthrough"
         )
-        pipeline = Pipeline([("preprocessing", self.prepro_col_transf)])
-        return pipeline
+        return Pipeline([("preprocessing", self.prepro_col_transf)])
+
+    def get_prepro_feature_names_from_pipeline(self) -> list:
+        """only works when model has not been added to pipeline!
+
+        Returns:
+            list: list of feature names
+        """
+        return [
+            item.replace("encoder__", "")
+            .replace("standardization__", "")
+            .replace("minmax__", "")
+            .replace("remainder__", "")
+            for item in self.prepro_col_transf.get_feature_names_out()
+        ]
+
+    def get_dataframe_from_pipeline(
+        self, dataframe_transformed_by_pipeline: scipy.sparse._csr.csr_matrix
+    ) -> pd.DataFrame:
+        """requires the output of the pipeline.transform(pd.DataFrame) as input
+        and returns a pandas DataFrame with the feature names and the preprocessed features
+
+
+        Args:
+            dataframe_transformed_by_pipeline (scipy.sparse._csr.csr_matrix): output of pipeline.transform(pd.DataFrame)
+
+        Returns:
+            pd.DataFrame: preprocessed dataframe with all feature names
+        """
+        transformed = dataframe_transformed_by_pipeline.todense()
+        feature_names = self.get_prepro_feature_names_from_pipeline()
+        return pd.DataFrame(transformed, columns=feature_names)
