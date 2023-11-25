@@ -183,7 +183,7 @@ class NFLPreprocessing(AbstractNFLPreprocessing):
                 (
                     "encoder",
                     OneHotEncoder(drop="first"),
-                    ["posteam", "posteam_type", "roof", "defteam"],
+                    ["posteam", "posteam_type", "defteam", "roof"],
                 )
             ],
             remainder="passthrough",  # include non-transformed columns
@@ -194,8 +194,12 @@ class NFLPreprocessing(AbstractNFLPreprocessing):
 
     def split_into_run_and_pass_dataframes(self):
         logger.info("Splitting into run and pass dataframes")
-        self.run_df = self.combined_df[self.combined_df["play_type"] == "run"]
-        self.pass_df = self.combined_df[self.combined_df["play_type"] == "pass"]
+        self.run_df = self.combined_df[self.combined_df["play_type"] == "run"].drop(
+            "play_type", axis=1
+        )
+        self.pass_df = self.combined_df[self.combined_df["play_type"] == "pass"].drop(
+            "play_type", axis=1
+        )
         logger.info("Successfully split into run and pass dataframes")
 
     def split_into_test_and_training_dataframes(self, df, test_size):
