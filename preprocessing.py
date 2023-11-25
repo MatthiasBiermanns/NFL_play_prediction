@@ -194,11 +194,15 @@ class NFLPreprocessing(AbstractNFLPreprocessing):
 
     def split_into_run_and_pass_dataframes(self):
         logger.info("Splitting into run and pass dataframes")
-        self.run_df = self.combined_df[self.combined_df["play_type"] == "run"].drop(
-            "play_type", axis=1
+        self.run_df = (
+            self.combined_df[self.combined_df["play_type"] == "run"]
+            .drop("play_type", axis=1)
+            .reset_index()
         )
-        self.pass_df = self.combined_df[self.combined_df["play_type"] == "pass"].drop(
-            "play_type", axis=1
+        self.pass_df = (
+            self.combined_df[self.combined_df["play_teype"] == "pass"]
+            .drop("play_type", axis=1)
+            .reset_index()
         )
         logger.info("Successfully split into run and pass dataframes")
 
@@ -249,8 +253,6 @@ class NFLPreprocessing(AbstractNFLPreprocessing):
 
     def make_pipeline(self):
         pipeline = Pipeline(
-            [
-                ("feature_encoding", self.encoder)
-            ]  # , ("normalization", self.normalizer)]
+            [("feature_encoding", self.encoder), ("normalization", self.normalizer)]
         )
         return pipeline
