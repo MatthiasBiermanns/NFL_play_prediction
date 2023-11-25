@@ -22,6 +22,7 @@ class AbstractNFLPreprocessing(ABC):
         self.encoder = None
         self.normalizer = None
         self.pipeline = None
+        self.prepro_col_transf = None
 
         # apply preprocessing steps
         self.make_combined_df(csv_file_list)
@@ -179,7 +180,7 @@ class NFLPreprocessing(AbstractNFLPreprocessing):
     def encoding_of_categorical_features(self):
         logger.info("Encoding categorical features")
         # create ColumnTransformer
-        encoder = ColumnTransformer(
+        """ encoder = ColumnTransformer(
             transformers=[
                 (
                     "encoder",
@@ -188,7 +189,15 @@ class NFLPreprocessing(AbstractNFLPreprocessing):
                 )
             ],
             remainder="passthrough",  # include non-transformed columns
-        )
+        ) """
+
+        encoder = [
+            (
+                "encoder",
+                OneHotEncoder(drop="first"),
+                ["posteam", "posteam_type", "defteam", "roof"],
+            )
+        ]
 
         logger.info("Successfully encoded categorical features")
         return encoder
@@ -236,14 +245,18 @@ class NFLPreprocessing(AbstractNFLPreprocessing):
             "td_prob",
             "wpa",
         ]
-        normalizer = ColumnTransformer(
+        """ normalizer = ColumnTransformer(
             transformers=[
                 ("standardization", StandardScaler(), ["score_differential"]),
                 ("minmax", MinMaxScaler(), numeric_features),
             ],
             remainder="passthrough",  # include non-transformed columns
-        )
+        ) """
 
+        normalizer = [
+            ("standardization", StandardScaler(), ["score_differential"]),
+            ("minmax", MinMaxScaler(), numeric_features),
+        ]
         logger.info("Successfully normalized numerical features")
         return normalizer
 
@@ -254,7 +267,9 @@ class NFLPreprocessing(AbstractNFLPreprocessing):
         return training_df
 
     def make_pipeline(self):
-        pipeline = Pipeline(
-            [("feature_encoding", self.encoder), ("normalization", self.normalizer)]
+        preprocessing = self.encoder + self.normalizer
+        self.prepro_col_transf = ColumnTransformer(
+            transformers=preprocessing, remainder="passthrough"
         )
+        pipeline = Pipeline([("preprocessing", self.prepro_col_transf)])
         return pipeline
