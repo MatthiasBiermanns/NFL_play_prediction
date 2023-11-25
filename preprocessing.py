@@ -37,6 +37,7 @@ class AbstractNFLPreprocessing(ABC):
             self.pass_df, test_size
         )
         self.encoder = self.encoding_of_categorical_features()
+        self.normalizer = self.apply_normalization()
         logger.info("--- Successfully Loaded Preprocessing Steps ---")
 
     @abstractmethod
