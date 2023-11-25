@@ -236,7 +236,7 @@ class NFLPreprocessing(AbstractNFLPreprocessing):
             "td_prob",
             "wpa",
         ]
-        self.normalizer = ColumnTransformer(
+        normalizer = ColumnTransformer(
             transformers=[
                 ("standardization", StandardScaler(), ["score_differential"]),
                 ("minmax", MinMaxScaler(), numeric_features),
@@ -245,6 +245,7 @@ class NFLPreprocessing(AbstractNFLPreprocessing):
         )
 
         logger.info("Successfully normalized numerical features")
+        return normalizer
 
     def outlier_removal(self, training_df):
         logger.info("Removing outliers")
