@@ -99,7 +99,7 @@ class AbstractNFLPreprocessing(ABC):
         pass
 
     @abstractmethod
-    def make_pipeline(self):
+    def make_preprocessing_pipeline(self):
         pass
 
 
@@ -274,7 +274,7 @@ class NFLPreprocessing(AbstractNFLPreprocessing):
             for item in self.prepro.get_feature_names_out()
         ]
 
-    def get_dataframe_from_pipeline(
+    def get_dataframe_from_preprocessing_pipeline(
         self,
         pipeline: sklearn.pipeline.Pipeline,
         datafrme_to_be_transformed: pd.DataFrame,
@@ -340,5 +340,5 @@ class NFLPreprocessing(AbstractNFLPreprocessing):
             ]
         )
 
-    def make_pipeline(self):
+    def make_preprocessing_pipeline(self):
         return Pipeline(steps=[("preprocessor", self.prepro)])
