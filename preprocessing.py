@@ -6,12 +6,13 @@ from sklearn.preprocessing import OneHotEncoder, MinMaxScaler, StandardScaler
 from sklearn.compose import ColumnTransformer
 from loguru import logger
 import scipy
+import sklearn
 
 
 class AbstractNFLPreprocessing(ABC):
     def __init__(self, csv_file_list: list, test_size: float = 0.25) -> None:
         super().__init__()
-        logger.info("--- Loading Preprocessing Steps ---")
+        logger.info("--- Executing Preprocessing Steps ---")
         # initialization
         self.combined_df = None
         self.run_df = None
@@ -21,9 +22,10 @@ class AbstractNFLPreprocessing(ABC):
         self.pass_test = None
         self.pass_train = None
         self.encoder = None
-        self.normalizer = None
+        self.minmax_scaler = None
+        self.standardizer = None
+        self.prepro = None
         self.pipeline = None
-        self.prepro_col_transf = None
 
         # apply preprocessing steps
         self.make_combined_df(csv_file_list)
@@ -39,7 +41,9 @@ class AbstractNFLPreprocessing(ABC):
             self.pass_df, test_size
         )
         self.encoder = self.encoding_of_categorical_features()
-        self.normalizer = self.apply_normalization()
+        self.minmax_scaler = self.apply_minmax_scaling()
+        self.standardizer = self.apply_standardization()
+        self.prepro = self.make_preprocessor()
         logger.info("--- Successfully Loaded Preprocessing Steps ---")
 
     @abstractmethod
@@ -78,8 +82,20 @@ class AbstractNFLPreprocessing(ABC):
     def outlier_removal(self):
         pass
 
-    @abstractmethod
+    """ @abstractmethod
     def apply_normalization(self):
+        pass """
+
+    @abstractmethod
+    def apply_minmax_scaling(self):
+        pass
+
+    @abstractmethod
+    def apply_standardization(self):
+        pass
+
+    @abstractmethod
+    def make_preprocessor(self):
         pass
 
     @abstractmethod
@@ -178,31 +194,6 @@ class NFLPreprocessing(AbstractNFLPreprocessing):
         self.combined_df.dropna(inplace=True)
         logger.info("Successfully cleared observations with NAs")
 
-    def encoding_of_categorical_features(self):
-        logger.info("Encoding categorical features")
-        # create ColumnTransformer
-        """ encoder = ColumnTransformer(
-            transformers=[
-                (
-                    "encoder",
-                    OneHotEncoder(drop="first"),
-                    ["posteam", "posteam_type", "defteam", "roof"],
-                )
-            ],
-            remainder="passthrough",  # include non-transformed columns
-        ) """
-
-        encoder = [
-            (
-                "encoder",
-                OneHotEncoder(drop="first"),
-                ["posteam", "posteam_type", "defteam", "roof"],
-            )
-        ]
-
-        logger.info("Successfully encoded categorical features")
-        return encoder
-
     def split_into_run_and_pass_dataframes(self):
         logger.info("Splitting into run and pass dataframes")
         self.run_df = (
@@ -236,43 +227,37 @@ class NFLPreprocessing(AbstractNFLPreprocessing):
         logger.info("Successfully split into train and test dataframes")
         return test_df, training_df
 
-    def apply_normalization(self):
-        logger.info("Normalizing numerical features")
-        numeric_features = [
-            "yardline_100",
-            "game_seconds_remaining",
-            "down",
-            "ydstogo",
-            "td_prob",
-            "wpa",
-        ]
-        """ normalizer = ColumnTransformer(
-            transformers=[
-                ("standardization", StandardScaler(), ["score_differential"]),
-                ("minmax", MinMaxScaler(), numeric_features),
-            ],
-            remainder="passthrough",  # include non-transformed columns
-        ) """
-
-        normalizer = [
-            ("standardization", StandardScaler(), ["score_differential"]),
-            ("minmax", MinMaxScaler(), numeric_features),
-        ]
-        logger.info("Successfully normalized numerical features")
-        return normalizer
-
-    def outlier_removal(self, training_df):
+    def outlier_removal(self, training_df, factor_iqr: float = 3.0):
         logger.info("Removing outliers")
-        # TODO @ Joel
+        for column in training_df.columns:
+            # parse columns to a numeric data type
+            try:
+                training_df[column] = pd.to_numeric(training_df)
+                # check whether these are of type boolean and parse them if so
+                is_boolean = all(value in [0.00, 1.00] for value in training_df[column])
+                if is_boolean:
+                    training_df[column] = training_df[column].astype(bool)
+
+                # else remove outliers using the inter quartile range
+                else:
+                    quantile_value = 0.25
+                    q1 = training_df[column].quantile(quantile_value)
+                    q3 = training_df[column].quantile(1 - quantile_value)
+                    iqr = q3 - q1
+                    lower_bound = q1 - factor_iqr * iqr
+                    upper_bound = q3 + factor_iqr * iqr
+                    training_df = training_df.loc[
+                        ~(
+                            (training_df[column] < lower_bound)
+                            | (training_df[column] > upper_bound)
+                        )
+                    ]
+
+            except ValueError:
+                training_df[column] = training_df[column].apply(str)
+
         logger.info("Successfully removed outliers")
         return training_df
-
-    def make_pipeline(self):
-        preprocessing = self.encoder + self.normalizer
-        self.prepro_col_transf = ColumnTransformer(
-            transformers=preprocessing, remainder="passthrough"
-        )
-        return Pipeline([("preprocessing", self.prepro_col_transf)])
 
     def get_prepro_feature_names_from_pipeline(self) -> list:
         """only works when model has not been added to pipeline!
@@ -280,31 +265,80 @@ class NFLPreprocessing(AbstractNFLPreprocessing):
         Returns:
             list: list of feature names
         """
+
         return [
             item.replace("encoder__", "")
             .replace("standardization__", "")
             .replace("minmax__", "")
             .replace("remainder__", "")
-            for item in self.prepro_col_transf.get_feature_names_out()
+            for item in self.prepro.get_feature_names_out()
         ]
 
     def get_dataframe_from_pipeline(
         self,
-        pipeline: sklearn.pipeline.Pipeline(),
-        datafrme_to_be_transformed: pd.Dataframe,
+        pipeline: sklearn.pipeline.Pipeline,
+        datafrme_to_be_transformed: pd.DataFrame,
     ) -> pd.DataFrame:
         """requires a pipeline without a model!
         returns dataframe processed by pipeline with feature names
 
         Args:
-            pipeline (sklearn.pipeline.Pipeline): 
-            datafrme_to_be_transformed (pd.Dataframe): 
+            pipeline (sklearn.pipeline.Pipeline):
+            datafrme_to_be_transformed (pd.Dataframe):
 
         Returns:
             pd.DataFrame: preprocessed dataframe with all feature names
         """
         transformed = pipeline.transform(datafrme_to_be_transformed)
-        transformed = (
-            transformed.todense()
+        transformed = transformed.todense()
         feature_names = self.get_prepro_feature_names_from_pipeline()
         return pd.DataFrame(transformed, columns=feature_names)
+
+    def encoding_of_categorical_features(self):
+        logger.info("Encoding categorical features")
+        # create ColumnTransformer
+        encoder = Pipeline(steps=[("encoder", OneHotEncoder(drop="first"))])
+
+        logger.info("Successfully encoded categorical features")
+        return encoder
+
+    def apply_standardization(self):
+        logger.info("Normalizing numerical features using standardization")
+
+        standardizer = Pipeline(steps=[("standardization", StandardScaler())])
+
+        logger.info("Successfully normalized numerical features using standardization")
+        return standardizer
+
+    def apply_minmax_scaling(self):
+        logger.info("Normalizing numerical features using Min-Max scaling")
+
+        minmax_scaler = Pipeline(steps=[("minmax", MinMaxScaler())])
+
+        logger.info("Successfully normalized numerical features using Min-Max scaling")
+        return minmax_scaler
+
+    def make_preprocessor(self):
+        numeric_features = [
+            "yardline_100",
+            "game_seconds_remaining",
+            "down",
+            "ydstogo",
+            "td_prob",
+            "wpa",
+            "score_differential",
+        ]
+        return ColumnTransformer(
+            transformers=[
+                (
+                    "encoder",
+                    self.encoder,
+                    ["posteam", "posteam_type", "defteam", "roof"],
+                ),
+                ("standardization", self.standardizer, ["score_differential"]),
+                ("minmax", self.minmax_scaler, numeric_features),
+            ]
+        )
+
+    def make_pipeline(self):
+        return Pipeline(steps=[("preprocessor", self.prepro)])
