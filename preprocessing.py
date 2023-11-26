@@ -43,10 +43,12 @@ class AbstractNFLPreprocessing(ABC):
         self.pass_train, self.pass_test = self.split_into_test_and_training_dataframes(
             self.pass_df, test_size
         )
+        logger.info("Preparing pipeline")
         self.encoder = self.make_encoder()
         self.minmax_scaler = self.make_minmax_scaler()
         self.standardizer = self.make_standardizer()
         self.prepro = self.make_preprocessor()
+        logger.info("Successfully prepared pipeline")
         logger.info("--- Successfully Loaded Preprocessing Steps ---")
 
     @abstractmethod
