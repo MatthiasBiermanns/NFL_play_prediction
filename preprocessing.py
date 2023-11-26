@@ -10,9 +10,12 @@ import sklearn
 
 
 class AbstractNFLPreprocessing(ABC):
+    """abstract class to create layout for NFLPreprocessing class"""
+
     def __init__(self, csv_file_list: list, test_size: float = 0.25) -> None:
         super().__init__()
         logger.info("--- Executing Preprocessing Steps ---")
+
         # initialization
         self.combined_df = None
         self.run_df = None
@@ -34,15 +37,15 @@ class AbstractNFLPreprocessing(ABC):
         self.drop_irrelevant_features()
         self.clear_nas()
         self.split_into_run_and_pass_dataframes()
-        self.run_test, self.run_train = self.split_into_test_and_training_dataframes(
+        self.run_train, self.run_test = self.split_into_test_and_training_dataframes(
             self.run_df, test_size
         )
-        self.pass_test, self.pass_train = self.split_into_test_and_training_dataframes(
+        self.pass_train, self.pass_test = self.split_into_test_and_training_dataframes(
             self.pass_df, test_size
         )
-        self.encoder = self.encoding_of_categorical_features()
-        self.minmax_scaler = self.apply_minmax_scaling()
-        self.standardizer = self.apply_standardization()
+        self.encoder = self.make_encoder()
+        self.minmax_scaler = self.make_minmax_scaler()
+        self.standardizer = self.make_standardizer()
         self.prepro = self.make_preprocessor()
         logger.info("--- Successfully Loaded Preprocessing Steps ---")
 
@@ -75,23 +78,19 @@ class AbstractNFLPreprocessing(ABC):
         pass
 
     @abstractmethod
-    def encoding_of_categorical_features(self):
+    def make_encoder(self):
         pass
 
     @abstractmethod
     def outlier_removal(self):
         pass
 
-    """ @abstractmethod
-    def apply_normalization(self):
-        pass """
-
     @abstractmethod
-    def apply_minmax_scaling(self):
+    def make_minmax_scaler(self):
         pass
 
     @abstractmethod
-    def apply_standardization(self):
+    def make_standardizer(self):
         pass
 
     @abstractmethod
@@ -107,18 +106,28 @@ class NFLPreprocessing(AbstractNFLPreprocessing):
     def __init__(self, file_list: list) -> None:
         super().__init__(file_list)
 
-    def make_combined_df(self, csv_file_list):
+    def make_combined_df(self, csv_file_list: list):
+        """combines dataframes from csv list into one large dataframe
+
+        Args:
+            csv_file_list (list): list of filenames of csv files
+        """
         logger.info("Loading csv files")
+
         # load each csv file as a dataframe and collect them in a list
         dataframes = []
         for csv_file in csv_file_list:
             df = pd.read_csv(csv_file)
             dataframes.append(df)
+
         # combine all dataframes into a single one
         self.combined_df = pd.concat(dataframes, axis=0)
         logger.info("Successfully loaded csv files")
 
     def drop_irrelevant_observations(self):
+        """
+        drops non pass- or run plays and plays with rare or unpredictable outcomes
+        """
         logger.info("Removing irrelevant observations")
         # remove non-pass and non-run plays from dataframe
         self.combined_df.drop(
@@ -159,11 +168,16 @@ class NFLPreprocessing(AbstractNFLPreprocessing):
         logger.info("Successfully deleted irrelevant observations")
 
     def insert_missing_values(self):
-        logger.info("Imputing missing values")
-        # please refer to insertion.txt for source of values
+        """inserts missing values for the roof variable.
+        please refer to insertion.txt for source of values"""
+
+        logger.info("Inserting missing values")
+
+        # open json file
         with open("roof_insertion.json") as file:
             insertion = json.load(file)
 
+            # update values for roof
             def update_roof(row):
                 if any(game_id in row["game_id"] for game_id in insertion["open_roof"]):
                     return "open"
@@ -182,6 +196,9 @@ class NFLPreprocessing(AbstractNFLPreprocessing):
             logger.info("Successfully inserted missing values")
 
     def drop_irrelevant_features(self):
+        """
+        drops features irrelevant for task at hand
+        """
         logger.info("Dropping irrelevant features")
         with open("drop_columns.json") as file:
             column_drop_dict = json.load(file)
@@ -195,6 +212,9 @@ class NFLPreprocessing(AbstractNFLPreprocessing):
         logger.info("Successfully cleared observations with NAs")
 
     def split_into_run_and_pass_dataframes(self):
+        """
+        splits self.combined_df into run and pass dataframes
+        """
         logger.info("Splitting into run and pass dataframes")
         self.run_df = (
             self.combined_df[self.combined_df["play_type"] == "run"]
@@ -208,7 +228,19 @@ class NFLPreprocessing(AbstractNFLPreprocessing):
         )
         logger.info("Successfully split into run and pass dataframes")
 
-    def split_into_test_and_training_dataframes(self, df, test_size):
+    def split_into_test_and_training_dataframes(
+        self, df: pd.DataFrame, test_size: float = 0.25
+    ):
+        """
+        splits dataframe into test and training dataset
+
+        Args:
+            df (pd.DataFrame): dataframe to be split into training and test dataframe
+            test_size (float, optional): size of the test set. Defaults to 0.25.
+
+        Returns:
+            pd.DataFrame: training and test set
+        """
         logger.info("Splitting into train and test dataframes")
         # set seed for reproducability
         seed = 1887  # nur der HSV
@@ -225,7 +257,7 @@ class NFLPreprocessing(AbstractNFLPreprocessing):
         test_df.reset_index(inplace=True)
         training_df.reset_index(inplace=True)
         logger.info("Successfully split into train and test dataframes")
-        return test_df, training_df
+        return training_df, test_df
 
     def outlier_removal(self, training_df, factor_iqr: float = 3.0):
         logger.info("Removing outliers")
@@ -294,31 +326,26 @@ class NFLPreprocessing(AbstractNFLPreprocessing):
         feature_names = self.get_prepro_feature_names_from_pipeline()
         return pd.DataFrame(transformed, columns=feature_names)
 
-    def encoding_of_categorical_features(self):
-        logger.info("Encoding categorical features")
+    def make_encoder(self):
         # create ColumnTransformer
         encoder = Pipeline(steps=[("encoder", OneHotEncoder(drop="first"))])
-
-        logger.info("Successfully encoded categorical features")
         return encoder
 
-    def apply_standardization(self):
-        logger.info("Normalizing numerical features using standardization")
-
+    def make_standardizer(self):
         standardizer = Pipeline(steps=[("standardization", StandardScaler())])
-
-        logger.info("Successfully normalized numerical features using standardization")
         return standardizer
 
-    def apply_minmax_scaling(self):
-        logger.info("Normalizing numerical features using Min-Max scaling")
-
+    def make_minmax_scaler(self):
         minmax_scaler = Pipeline(steps=[("minmax", MinMaxScaler())])
-
-        logger.info("Successfully normalized numerical features using Min-Max scaling")
         return minmax_scaler
 
     def make_preprocessor(self):
+        """combines make_encoder(), make_standardizer(), make_minmax_scaler() into a single
+        ColumnTransformer
+
+        Returns:
+            ColumnTransformer
+        """
         numeric_features = [
             "yardline_100",
             "game_seconds_remaining",
