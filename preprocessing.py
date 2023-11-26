@@ -348,26 +348,28 @@ class NFLPreprocessing(AbstractNFLPreprocessing):
         Returns:
             ColumnTransformer
         """
-        numeric_features = [
-            "yardline_100",
-            "game_seconds_remaining",
-            "down",
-            "ydstogo",
-            "td_prob",
-            "wpa",
-            "score_differential",
-        ]
-        return ColumnTransformer(
-            transformers=[
-                (
-                    "encoder",
-                    self.encoder,
-                    ["posteam", "posteam_type", "defteam", "roof"],
-                ),
-                ("standardization", self.standardizer, ["score_differential"]),
-                ("minmax", self.minmax_scaler, numeric_features),
-            ]
-        )
+        with open("encoding_normalization.json") as file:
+            encoding_normalization = json.load(file)
+            preprocessor = ColumnTransformer(
+                transformers=[
+                    (
+                        "encoder",
+                        self.encoder,
+                        encoding_normalization["one_hot_features"],
+                    ),
+                    (
+                        "standardization",
+                        self.standardizer,
+                        encoding_normalization["standardizing_features"],
+                    ),
+                    (
+                        "minmax",
+                        self.minmax_scaler,
+                        encoding_normalization["minmax_features"],
+                    ),
+                ]
+            )
+        return preprocessor
 
     def make_preprocessing_pipeline(self):
         return Pipeline(steps=[("preprocessor", self.prepro)])
