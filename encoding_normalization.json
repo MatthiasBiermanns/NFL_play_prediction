@@ -1,0 +1,15 @@
+{
+  "minmax_features": [
+    "yardline_100",
+    "game_seconds_remaining",
+    "down",
+    "ydstogo",
+    "td_prob",
+    "wpa",
+    "score_differential"
+  ],
+
+  "standardizing_features": ["score_differential"],
+
+  "one_hot_features": ["posteam", "posteam_type", "defteam", "roof"]
+}
