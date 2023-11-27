@@ -1,3 +1,47 @@
+"""
+use this script as follows:
+- import: from preprocessing import NFLPreprocessing
+- usage: i) create an instance of the NFLPreprocessing class by providing a list of csv files and optionally the size of the test set
+        ii) this instance contains the following attributes (marked with * are especially important for further usage such as model development):
+        
+        combined_df = dataframes of all years combined into one large dataframe
+        run_df = complete run dataframe
+        pass_df = complete pass dataframe
+        * run_test = run test dataframe
+        * run_train = run train dataframe
+        * pass_test = pass test dataframe
+        * pass_train = pass train dataframe
+        encoder = Pipeline of one hot encoding
+        minmax_scaler = Pipeline of min max scaler
+        standardizer = Pipeline of standardizer
+        prepro = Column Transformer of the previous three
+
+        iii) the instance contains the following methods (marked with * are especially important for further usage such as model development):
+
+        make_combined_df(self, csv_file_list: list): combines the dataframes from the list into one
+        drop_irrelevant_observations(self): drops observations which are not relevant for our case
+        insert_missing_values(self): inserts missing values for roof attribute
+        drop_irrelevant_features(self): drops irrelevant features, such as ids and names
+        clear_nas(self): removes remaining NAs
+        split_into_run_and_pass_dataframes(self): splits combined_df into run and passing dataframe depending on the play_type attribute
+        split_into_test_and_training_dataframes(
+            self, df: pd.DataFrame, test_size: float = 0.25
+        ): splits the provided dataframe into test and training dataset depending on the provided test_size
+        outlier_removal(self, training_df, factor_iqr: float = 3.0): removes outliers on the provided training_df according to the optionally provided iqr factor
+        make_encoder(self): makes Pipeline of one hot encoding
+        make_standardizer(self): makes Pipeline of min max scaler
+        make_minmax_scaler(self): makes Pipeline of standard scaler
+        make_preprocessor(self): makes Column Transformer of the previous three
+        * make_preprocessing_pipeline(self): returns a Pipeline object by providing the steps stored in self.prepro
+        * get_prepro_feature_names_from_pipeline(self) -> list: returns the feature names from the ColumnTransformer containing the preprocessing pipeline steps
+        * get_dataframe_from_preprocessing_pipeline(self,
+        pipeline: sklearn.pipeline.Pipeline,
+        datafrme_to_be_transformed: pd.DataFrame,
+    ) -> pd.DataFrame: returns a pandas Dataframe with the provided pipeline applied to the provided datafrmae
+        
+"""
+
+
 from abc import ABC, abstractmethod
 import pandas as pd
 import json
@@ -28,7 +72,6 @@ class AbstractNFLPreprocessing(ABC):
         self.minmax_scaler = None
         self.standardizer = None
         self.prepro = None
-        self.pipeline = None
 
         # apply preprocessing steps
         self.make_combined_df(csv_file_list)
