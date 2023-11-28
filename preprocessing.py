@@ -3,7 +3,7 @@ use this script as follows:
 - import: from preprocessing import NFLPreprocessing
 - usage: i) create an instance of the NFLPreprocessing class by providing a list of csv files and optionally the size of the test set
         ii) this instance contains the following attributes (marked with * are especially important for further usage such as model development):
-        
+
         combined_df = dataframes of all years combined into one large dataframe
         run_df = complete run dataframe
         pass_df = complete pass dataframe
@@ -38,7 +38,7 @@ use this script as follows:
         pipeline: sklearn.pipeline.Pipeline,
         datafrme_to_be_transformed: pd.DataFrame,
     ) -> pd.DataFrame: returns a pandas Dataframe with the provided pipeline applied to the provided datafrmae
-        
+
 """
 
 
@@ -89,6 +89,8 @@ class AbstractNFLPreprocessing(ABC):
         logger.info("Preparing pipeline")
         self.encoder = self.make_encoder()
         self.minmax_scaler = self.make_minmax_scaler()
+        self.run_train = self.outlier_removal(self.run_train, 3.0)
+        self.pass_train = self.outlier_removal(self.pass_train, 3.0)
         self.standardizer = self.make_standardizer()
         self.prepro = self.make_preprocessor()
         logger.info("Successfully prepared pipeline")
@@ -127,7 +129,7 @@ class AbstractNFLPreprocessing(ABC):
         pass
 
     @abstractmethod
-    def outlier_removal(self):
+    def outlier_removal(self, training_df, factor_iqr):
         pass
 
     @abstractmethod
@@ -212,8 +214,10 @@ class NFLPreprocessing(AbstractNFLPreprocessing):
         )
 
         # adjust the spread line to the view of the team with possession of the ball
-        self.combined_df.loc[self.combined_df['posteam_type'] == 'away', 'spread_line'] *= -1
-        
+        self.combined_df.loc[
+            self.combined_df["posteam_type"] == "away", "spread_line"
+        ] *= -1
+
         logger.info("Successfully deleted irrelevant observations")
 
     def insert_missing_values(self):
@@ -313,9 +317,11 @@ class NFLPreprocessing(AbstractNFLPreprocessing):
         for column in training_df.columns:
             # parse columns to a numeric data type
             try:
-                training_df[column] = pd.to_numeric(training_df)
+                training_df[column] = pd.to_numeric(training_df[column])
                 # check whether these are of type boolean and parse them if so
-                is_boolean = all(value in [0.00, 1.00] for value in training_df[column])
+                is_boolean = all(
+                    value in [float(0), float(1)] for value in training_df[column]
+                )
                 if is_boolean:
                     training_df[column] = training_df[column].astype(bool)
 
@@ -327,6 +333,7 @@ class NFLPreprocessing(AbstractNFLPreprocessing):
                     iqr = q3 - q1
                     lower_bound = q1 - factor_iqr * iqr
                     upper_bound = q3 + factor_iqr * iqr
+                    # remove outliers
                     training_df = training_df.loc[
                         ~(
                             (training_df[column] < lower_bound)
@@ -334,8 +341,13 @@ class NFLPreprocessing(AbstractNFLPreprocessing):
                         )
                     ]
 
+            # if parsing the column doesn't work the column is a string and can be handled as such
             except ValueError:
                 training_df[column] = training_df[column].apply(str)
+
+        # parse back all columns to type object
+        for column in training_df.columns:
+            training_df[column] = training_df[column].astype(object)
 
         logger.info("Successfully removed outliers")
         return training_df
@@ -358,7 +370,7 @@ class NFLPreprocessing(AbstractNFLPreprocessing):
     def get_dataframe_from_preprocessing_pipeline(
         self,
         pipeline: sklearn.pipeline.Pipeline,
-        datafrme_to_be_transformed: pd.DataFrame,
+        dataframe_to_be_transformed: pd.DataFrame,
     ) -> pd.DataFrame:
         """requires a pipeline without a model!
         returns dataframe processed by pipeline with feature names
@@ -370,7 +382,7 @@ class NFLPreprocessing(AbstractNFLPreprocessing):
         Returns:
             pd.DataFrame: preprocessed dataframe with all feature names
         """
-        transformed = pipeline.transform(datafrme_to_be_transformed)
+        transformed = pipeline.transform(dataframe_to_be_transformed)
         transformed = transformed.todense()
         feature_names = self.get_prepro_feature_names_from_pipeline()
         return pd.DataFrame(transformed, columns=feature_names)
