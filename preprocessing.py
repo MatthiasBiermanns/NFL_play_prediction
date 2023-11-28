@@ -5,12 +5,8 @@ use this script as follows:
         ii) this instance contains the following attributes (marked with * are especially important for further usage such as model development):
 
         combined_df = dataframes of all years combined into one large dataframe
-        run_df = complete run dataframe
-        pass_df = complete pass dataframe
-        * run_test = run test dataframe
-        * run_train = run train dataframe
-        * pass_test = pass test dataframe
-        * pass_train = pass train dataframe
+        *run_df = complete run dataframe
+        *pass_df = complete pass dataframe
         encoder = Pipeline of one hot encoding
         minmax_scaler = Pipeline of min max scaler
         standardizer = Pipeline of standardizer
@@ -24,9 +20,6 @@ use this script as follows:
         drop_irrelevant_features(self): drops irrelevant features, such as ids and names
         clear_nas(self): removes remaining NAs
         split_into_run_and_pass_dataframes(self): splits combined_df into run and passing dataframe depending on the play_type attribute
-        split_into_test_and_training_dataframes(
-            self, df: pd.DataFrame, test_size: float = 0.25
-        ): splits the provided dataframe into test and training dataset depending on the provided test_size
         outlier_removal(self, training_df, factor_iqr: float = 3.0): removes outliers on the provided training_df according to the optionally provided iqr factor
         make_encoder(self): makes Pipeline of one hot encoding
         make_standardizer(self): makes Pipeline of min max scaler
@@ -37,7 +30,7 @@ use this script as follows:
         * get_dataframe_from_preprocessing_pipeline(self,
         pipeline: sklearn.pipeline.Pipeline,
         datafrme_to_be_transformed: pd.DataFrame,
-    ) -> pd.DataFrame: returns a pandas Dataframe with the provided pipeline applied to the provided datafrmae
+    ) -> pd.DataFrame: returns a pandas Dataframe with the provided pipeline applied to the provided dataframe
 
 """
 
@@ -64,10 +57,6 @@ class AbstractNFLPreprocessing(ABC):
         self.combined_df = None
         self.run_df = None
         self.pass_df = None
-        self.run_test = None
-        self.run_train = None
-        self.pass_test = None
-        self.pass_train = None
         self.encoder = None
         self.minmax_scaler = None
         self.standardizer = None
@@ -80,17 +69,9 @@ class AbstractNFLPreprocessing(ABC):
         self.drop_irrelevant_features()
         self.clear_nas()
         self.split_into_run_and_pass_dataframes()
-        self.run_train, self.run_test = self.split_into_test_and_training_dataframes(
-            self.run_df, test_size
-        )
-        self.pass_train, self.pass_test = self.split_into_test_and_training_dataframes(
-            self.pass_df, test_size
-        )
         logger.info("Preparing pipeline")
         self.encoder = self.make_encoder()
         self.minmax_scaler = self.make_minmax_scaler()
-        self.run_train = self.outlier_removal(self.run_train, 3.0)
-        self.pass_train = self.outlier_removal(self.pass_train, 3.0)
         self.standardizer = self.make_standardizer()
         self.prepro = self.make_preprocessor()
         logger.info("Successfully prepared pipeline")
@@ -118,10 +99,6 @@ class AbstractNFLPreprocessing(ABC):
 
     @abstractmethod
     def split_into_run_and_pass_dataframes(self):
-        pass
-
-    @abstractmethod
-    def split_into_test_and_training_dataframes(self, df, test_size):
         pass
 
     @abstractmethod
@@ -280,37 +257,6 @@ class NFLPreprocessing(AbstractNFLPreprocessing):
             .reset_index()
         )
         logger.info("Successfully split into run and pass dataframes")
-
-    def split_into_test_and_training_dataframes(
-        self, df: pd.DataFrame, test_size: float = 0.25
-    ):
-        """
-        splits dataframe into test and training dataset
-
-        Args:
-            df (pd.DataFrame): dataframe to be split into training and test dataframe
-            test_size (float, optional): size of the test set. Defaults to 0.25.
-
-        Returns:
-            pd.DataFrame: training and test set
-        """
-        logger.info("Splitting into train and test dataframes")
-        # set seed for reproducability
-        seed = 1887  # nur der HSV
-
-        # Shuffle the DataFrame
-        df = df.sample(frac=1, random_state=seed)
-
-        # calculate size of test df
-        split_size = int(test_size * len(df))
-
-        # Split the DataFrame
-        test_df = df.head(split_size)
-        training_df = df.tail(len(df) - split_size)
-        test_df.reset_index(inplace=True)
-        training_df.reset_index(inplace=True)
-        logger.info("Successfully split into train and test dataframes")
-        return training_df, test_df
 
     def outlier_removal(self, training_df, factor_iqr: float = 3.0):
         logger.info("Removing outliers")
