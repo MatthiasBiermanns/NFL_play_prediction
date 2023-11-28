@@ -199,7 +199,7 @@ class NFLPreprocessing(AbstractNFLPreprocessing):
 
         # drop plays with replays or challenges
         self.combined_df.drop(
-            self.combined_df[self.combined_df["replay_or_challenge"] == 1].index,
+            self.combined_df[self.combined_df["aborted_play"] == 1].index,
             axis=0,
             inplace=True,
         )
@@ -210,6 +210,10 @@ class NFLPreprocessing(AbstractNFLPreprocessing):
             axis=0,
             inplace=True,
         )
+
+        # adjust the spread line to the view of the team with possession of the ball
+        self.combined_df.loc[self.combined_df['posteam_type'] == 'away', 'spread_line'] *= -1
+        
         logger.info("Successfully deleted irrelevant observations")
 
     def insert_missing_values(self):
@@ -252,7 +256,7 @@ class NFLPreprocessing(AbstractNFLPreprocessing):
         logger.info("Successfully dropped irrelevant features")
 
     def clear_nas(self):
-        logger.info("Claering obervations with NAs")
+        logger.info("Clearing obervations with NAs")
         self.combined_df.dropna(inplace=True)
         logger.info("Successfully cleared observations with NAs")
 

@@ -6,10 +6,13 @@
     "ydstogo",
     "td_prob",
     "wpa",
-    "score_differential"
+    "score_differential",
+    "ydsnet",
+    "posteam_timeouts_remaining",
+    "defteam_timeouts_remaining"
   ],
 
   "standardizing_features": ["score_differential"],
 
-  "one_hot_features": ["posteam", "posteam_type", "defteam", "roof"]
+  "one_hot_features": ["posteam", "posteam_type", "defteam", "roof", "season_type"]
 }
