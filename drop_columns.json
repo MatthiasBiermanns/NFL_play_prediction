@@ -200,7 +200,8 @@
     "interception",
     "fumble",
     "qb_scramble",
-    "qb_hit"
+    "qb_hit",
+    "wpa"
   ],
 
   "correlated_drops": [
@@ -353,6 +354,7 @@
     "cp",
     "weather",
     "desc",
-    "series"
+    "series",
+    "week"
   ]
 }
