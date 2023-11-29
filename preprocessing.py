@@ -67,8 +67,9 @@ class AbstractNFLPreprocessing(ABC):
         self.combined_df = self.drop_irrelevant_observations()
         self.insert_missing_values()
         self.drop_irrelevant_features()
-        self.clear_nas()
         self.split_into_run_and_pass_dataframes()
+        self.run_df = self.clear_nas(self.run_df)
+        self.pass_df = self.clear_nas(self.pass_df)
         logger.info("Preparing pipeline")
         self.encoder = self.make_encoder()
         self.minmax_scaler = self.make_minmax_scaler()
@@ -212,10 +213,10 @@ class NFLPreprocessing(AbstractNFLPreprocessing):
                 self.combined_df.drop(drop_column_list, axis=1, inplace=True)
         logger.info("Successfully dropped irrelevant features")
 
-    def clear_nas(self):
+    def clear_nas(self, dataframe):
         logger.info("Clearing obervations with NAs")
-        self.combined_df.dropna(inplace=True)
         logger.info("Successfully cleared observations with NAs")
+        return dataframe.dropna(inplace=True)
 
     def split_into_run_and_pass_dataframes(self):
         """
@@ -224,7 +225,7 @@ class NFLPreprocessing(AbstractNFLPreprocessing):
         logger.info("Splitting into run and pass dataframes")
         self.run_df = (
             self.combined_df[self.combined_df["play_type"] == "run"]
-            .drop("play_type", axis=1)
+            .drop(["play_type", "passer_id"], axis=1)
             .reset_index(drop=True)
         )
         self.pass_df = (
