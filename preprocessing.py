@@ -1,4 +1,5 @@
 """
+author: Thilo
 use this script as follows:
 - import: from preprocessing import NFLPreprocessing
 - usage: i) create an instance of the NFLPreprocessing class by providing a list of csv files and optionally the size of the test set
