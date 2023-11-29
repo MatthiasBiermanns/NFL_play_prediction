@@ -64,7 +64,7 @@ class AbstractNFLPreprocessing(ABC):
 
         # apply preprocessing steps
         self.make_combined_df(csv_file_list)
-        self.drop_irrelevant_observations()
+        self.combined_df = self.drop_irrelevant_observations()
         self.insert_missing_values()
         self.drop_irrelevant_features()
         self.clear_nas()
@@ -153,50 +153,31 @@ class NFLPreprocessing(AbstractNFLPreprocessing):
         drops non pass- or run plays and plays with rare or unpredictable outcomes
         """
         logger.info("Removing irrelevant observations")
+        df = self.combined_df
         # remove non-pass and non-run plays from dataframe
-        self.combined_df = self.combined_df[self.combined_df['play_type'].isin(['pass', 'run'])]
-        self.combined_df = self.combined_df.reset_index(drop=True)
-
+        df = df[df["play_type"].isin(["pass", "run"])]
+        df = df.reset_index(drop=True)
         # drop plays with penalties
-        self.combined_df.drop(
-            self.combined_df[self.combined_df["penalty"] == 1].index,
-            axis=0,
-            inplace=True,
-        )
-
+        df = df[df["penalty"] == 0]
         # drop plays with laterals
-        self.combined_df.drop(
-            self.combined_df[self.combined_df["lateral_reception"] == 1].index,
-            axis=0,
-            inplace=True,
-        )
-
+        df = df[df["lateral_reception"] == 0]
         # drop plays with replays or challenges
-        self.combined_df.drop(
-            self.combined_df[self.combined_df["aborted_play"] == 1].index,
-            axis=0,
-            inplace=True,
-        )
-
+        df = df[df["aborted_play"] == 0]
         # drop two point conversion plays
-        self.combined_df.drop(
-            self.combined_df[~self.combined_df["two_point_conv_result"].isna()].index,
-            axis=0,
-            inplace=True,
-        )
-
-        # adjust the spread line to the view of the team with possession of the ball
-        self.combined_df.loc[
-            self.combined_df["posteam_type"] == "away", "spread_line"
-        ] *= -1
-
+        df = df[df["two_point_conv_result"].isna()]
         logger.info("Successfully deleted irrelevant observations")
+        return df
 
     def insert_missing_values(self):
         """inserts missing values for the roof variable.
         please refer to insertion.txt for source of values"""
 
         logger.info("Inserting missing values")
+
+        # adjust the spread line to the view of the team with possession of the ball
+        self.combined_df.loc[
+            self.combined_df["posteam_type"] == "away", "spread_line"
+        ] *= -1
 
         # open json file
         with open("roof_insertion.json") as file:
@@ -244,12 +225,12 @@ class NFLPreprocessing(AbstractNFLPreprocessing):
         self.run_df = (
             self.combined_df[self.combined_df["play_type"] == "run"]
             .drop("play_type", axis=1)
-            .reset_index()
+            .reset_index(drop=True)
         )
         self.pass_df = (
             self.combined_df[self.combined_df["play_type"] == "pass"]
             .drop("play_type", axis=1)
-            .reset_index()
+            .reset_index(drop=True)
         )
         logger.info("Successfully split into run and pass dataframes")
 
