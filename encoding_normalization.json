@@ -1,0 +1,20 @@
+{
+  "minmax_features": [
+    "yardline_100",
+    "game_seconds_remaining",
+    "down",
+    "ydstogo",
+    "td_prob",
+    "spread_line",
+    "total_line",
+    "season",
+    "ydsnet",
+    "drive_play_count",
+    "posteam_timeouts_remaining",
+    "defteam_timeouts_remaining"
+  ],
+
+  "standardizing_features": ["score_differential"],
+
+  "one_hot_features": ["posteam", "posteam_type", "defteam", "roof", "season_type"]
+}
