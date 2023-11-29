@@ -200,7 +200,8 @@
     "fumble",
     "qb_scramble",
     "qb_hit",
-    "wpa"
+    "wpa",
+    "epa"
   ],
 
   "correlated_drops": [
@@ -220,7 +221,8 @@
     "wp",
     "epa",
     "half_seconds_remaining",
-    "game_half"
+    "game_half",
+    "series"
   ],
 
   "biased_drops": [
@@ -353,7 +355,6 @@
     "cp",
     "weather",
     "desc",
-    "series",
     "week"
   ]
 }
