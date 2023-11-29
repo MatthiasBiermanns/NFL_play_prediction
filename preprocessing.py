@@ -177,13 +177,8 @@ class NFLPreprocessing(AbstractNFLPreprocessing):
         """
         logger.info("Removing irrelevant observations")
         # remove non-pass and non-run plays from dataframe
-        self.combined_df.drop(
-            self.combined_df[
-                ~self.combined_df["play_type"].isin(["pass", "run"])
-            ].index,
-            axis=0,
-            inplace=True,
-        )
+        self.combined_df = self.combined_df[self.combined_df['play_type'].isin(['pass', 'run'])]
+        self.combined_df = self.combined_df.reset_index(drop=True)
 
         # drop plays with penalties
         self.combined_df.drop(
