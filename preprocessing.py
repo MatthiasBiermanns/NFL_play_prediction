@@ -202,16 +202,23 @@ class NFLPreprocessing(AbstractNFLPreprocessing):
 
         # transform drive start yard line
         def transform_dsyl(row):
-            match = re.match(r"([A-Z]+)(\d+)", row["drive_start_yard_line"])
-            if match:
-                team, number = match.groups()
-                return int(number) if row["posteam"] == team else 100 - int(number)
-            elif " " in row["drive_start_yard_line"]:
-                # Handle the case where there is a space but no match
-                return int(row["drive_start_yard_line"].split()[1])
+            value = row["drive_start_yard_line"]
+            if pd.notna(value) and isinstance(
+                value, str
+            ):  # Check if not NaN and is a string
+                match = re.match(r"([A-Z]+)(\d+)", value)
+                if match:
+                    team, number = match.groups()
+                    return int(number) if row["posteam"] == team else 100 - int(number)
+                elif " " in value:
+                    # Handle the case where there is a space but no match
+                    return int(value.split()[1])
+                else:
+                    # Handle the case where there is no space (e.g., '50')
+                    return int(value)
             else:
-                # Handle the case where there is no space (e.g., '50')
-                return int(row["drive_start_yard_line"])
+                # Handle the case where the value is NaN or not a string
+                return value
 
         self.combined_df["drive_start_yard_line"] = self.combined_df.apply(
             transform_dsyl, axis=1
@@ -272,11 +279,24 @@ class NFLPreprocessing(AbstractNFLPreprocessing):
             .drop(["play_type", "passer_id"], axis=1)
             .reset_index(drop=True)
         )
-        self.pass_df = (
+        pass_df = (
             self.combined_df[self.combined_df["play_type"] == "pass"]
             .drop("play_type", axis=1)
             .reset_index(drop=True)
         )
+
+        # Count the number of passes per passer and game
+        passer_game_counts = (
+            pass_df.groupby(["passer_id", "season"]).size().reset_index(name="count")
+        )
+
+        # Filter the passers with at least 224 pass attempts in at least one season
+        passers_with_min_passes = set(
+            passer_game_counts[passer_game_counts["count"] >= 224]["passer_id"]
+        )
+
+        # Filter out the pass plays where the passer_id is not in the passers_with_min_passes set
+        self.pass_df = pass_df[pass_df["passer_id"].isin(passers_with_min_passes)]
         logger.info("Successfully split into run and pass dataframes")
 
     def outlier_removal(self, training_df, factor_iqr: float = 3.0):
