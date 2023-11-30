@@ -223,6 +223,7 @@ class NFLPreprocessing(AbstractNFLPreprocessing):
         self.combined_df["drive_start_yard_line"] = self.combined_df.apply(
             transform_dsyl, axis=1
         )
+
         logger.info("Successfully transformed columns")
 
     def insert_missing_values(self):
@@ -296,7 +297,9 @@ class NFLPreprocessing(AbstractNFLPreprocessing):
         )
 
         # Filter out the pass plays where the passer_id is not in the passers_with_min_passes set
-        self.pass_df = pass_df[pass_df["passer_id"].isin(passers_with_min_passes)]
+        self.pass_df = pass_df[pass_df["passer_id"].isin(passers_with_min_passes)].drop(
+            "passer_id", axis=1
+        )
         logger.info("Successfully split into run and pass dataframes")
 
     def outlier_removal(self, training_df, factor_iqr: float = 3.0):
