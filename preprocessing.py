@@ -1,16 +1,13 @@
 """
+author: Thilo
 use this script as follows:
 - import: from preprocessing import NFLPreprocessing
 - usage: i) create an instance of the NFLPreprocessing class by providing a list of csv files and optionally the size of the test set
         ii) this instance contains the following attributes (marked with * are especially important for further usage such as model development):
 
         combined_df = dataframes of all years combined into one large dataframe
-        run_df = complete run dataframe
-        pass_df = complete pass dataframe
-        * run_test = run test dataframe
-        * run_train = run train dataframe
-        * pass_test = pass test dataframe
-        * pass_train = pass train dataframe
+        *run_df = complete run dataframe
+        *pass_df = complete pass dataframe
         encoder = Pipeline of one hot encoding
         minmax_scaler = Pipeline of min max scaler
         standardizer = Pipeline of standardizer
@@ -24,9 +21,6 @@ use this script as follows:
         drop_irrelevant_features(self): drops irrelevant features, such as ids and names
         clear_nas(self): removes remaining NAs
         split_into_run_and_pass_dataframes(self): splits combined_df into run and passing dataframe depending on the play_type attribute
-        split_into_test_and_training_dataframes(
-            self, df: pd.DataFrame, test_size: float = 0.25
-        ): splits the provided dataframe into test and training dataset depending on the provided test_size
         outlier_removal(self, training_df, factor_iqr: float = 3.0): removes outliers on the provided training_df according to the optionally provided iqr factor
         make_encoder(self): makes Pipeline of one hot encoding
         make_standardizer(self): makes Pipeline of min max scaler
@@ -37,7 +31,7 @@ use this script as follows:
         * get_dataframe_from_preprocessing_pipeline(self,
         pipeline: sklearn.pipeline.Pipeline,
         datafrme_to_be_transformed: pd.DataFrame,
-    ) -> pd.DataFrame: returns a pandas Dataframe with the provided pipeline applied to the provided datafrmae
+    ) -> pd.DataFrame: returns a pandas Dataframe with the provided pipeline applied to the provided dataframe
 
 """
 
@@ -49,8 +43,8 @@ from sklearn.pipeline import Pipeline
 from sklearn.preprocessing import OneHotEncoder, MinMaxScaler, StandardScaler
 from sklearn.compose import ColumnTransformer
 from loguru import logger
-import scipy
 import sklearn
+import re
 
 
 class AbstractNFLPreprocessing(ABC):
@@ -64,10 +58,6 @@ class AbstractNFLPreprocessing(ABC):
         self.combined_df = None
         self.run_df = None
         self.pass_df = None
-        self.run_test = None
-        self.run_train = None
-        self.pass_test = None
-        self.pass_train = None
         self.encoder = None
         self.minmax_scaler = None
         self.standardizer = None
@@ -77,20 +67,14 @@ class AbstractNFLPreprocessing(ABC):
         self.make_combined_df(csv_file_list)
         self.drop_irrelevant_observations()
         self.insert_missing_values()
+        self.transform_columns()
         self.drop_irrelevant_features()
-        self.clear_nas()
         self.split_into_run_and_pass_dataframes()
-        self.run_train, self.run_test = self.split_into_test_and_training_dataframes(
-            self.run_df, test_size
-        )
-        self.pass_train, self.pass_test = self.split_into_test_and_training_dataframes(
-            self.pass_df, test_size
-        )
+        self.clear_nas(self.run_df)
+        self.clear_nas(self.pass_df)
         logger.info("Preparing pipeline")
         self.encoder = self.make_encoder()
         self.minmax_scaler = self.make_minmax_scaler()
-        self.run_train = self.outlier_removal(self.run_train, 3.0)
-        self.pass_train = self.outlier_removal(self.pass_train, 3.0)
         self.standardizer = self.make_standardizer()
         self.prepro = self.make_preprocessor()
         logger.info("Successfully prepared pipeline")
@@ -109,6 +93,10 @@ class AbstractNFLPreprocessing(ABC):
         pass
 
     @abstractmethod
+    def transform_columns(self):
+        pass
+
+    @abstractmethod
     def drop_irrelevant_features(self):
         pass
 
@@ -118,10 +106,6 @@ class AbstractNFLPreprocessing(ABC):
 
     @abstractmethod
     def split_into_run_and_pass_dataframes(self):
-        pass
-
-    @abstractmethod
-    def split_into_test_and_training_dataframes(self, df, test_size):
         pass
 
     @abstractmethod
@@ -177,7 +161,9 @@ class NFLPreprocessing(AbstractNFLPreprocessing):
         """
         logger.info("Removing irrelevant observations")
         # remove non-pass and non-run plays from dataframe
-        self.combined_df = self.combined_df[self.combined_df['play_type'].isin(['pass', 'run'])]
+        self.combined_df = self.combined_df[
+            self.combined_df["play_type"].isin(["pass", "run"])
+        ]
         self.combined_df = self.combined_df.reset_index(drop=True)
 
         # drop plays with penalties
@@ -193,27 +179,44 @@ class NFLPreprocessing(AbstractNFLPreprocessing):
             axis=0,
             inplace=True,
         )
-
         # drop plays with replays or challenges
         self.combined_df.drop(
             self.combined_df[self.combined_df["aborted_play"] == 1].index,
             axis=0,
             inplace=True,
         )
-
         # drop two point conversion plays
         self.combined_df.drop(
             self.combined_df[~self.combined_df["two_point_conv_result"].isna()].index,
             axis=0,
             inplace=True,
         )
+        logger.info("Successfully deleted irrelevant observations")
 
+    def transform_columns(self):
+        logger.info("Transforming columns")
         # adjust the spread line to the view of the team with possession of the ball
         self.combined_df.loc[
             self.combined_df["posteam_type"] == "away", "spread_line"
         ] *= -1
 
-        logger.info("Successfully deleted irrelevant observations")
+        # transform drive start yard line
+        def transform_dsyl(row):
+            match = re.match(r"([A-Z]+)(\d+)", row["drive_start_yard_line"])
+            if match:
+                team, number = match.groups()
+                return int(number) if row["posteam"] == team else 100 - int(number)
+            elif " " in row["drive_start_yard_line"]:
+                # Handle the case where there is a space but no match
+                return int(row["drive_start_yard_line"].split()[1])
+            else:
+                # Handle the case where there is no space (e.g., '50')
+                return int(row["drive_start_yard_line"])
+
+        self.combined_df["drive_start_yard_line"] = self.combined_df.apply(
+            transform_dsyl, axis=1
+        )
+        logger.info("Successfully transformed columns")
 
     def insert_missing_values(self):
         """inserts missing values for the roof variable.
@@ -254,9 +257,9 @@ class NFLPreprocessing(AbstractNFLPreprocessing):
                 self.combined_df.drop(drop_column_list, axis=1, inplace=True)
         logger.info("Successfully dropped irrelevant features")
 
-    def clear_nas(self):
+    def clear_nas(self, dataframe):
         logger.info("Clearing obervations with NAs")
-        self.combined_df.dropna(inplace=True)
+        dataframe.dropna(inplace=True)
         logger.info("Successfully cleared observations with NAs")
 
     def split_into_run_and_pass_dataframes(self):
@@ -266,46 +269,15 @@ class NFLPreprocessing(AbstractNFLPreprocessing):
         logger.info("Splitting into run and pass dataframes")
         self.run_df = (
             self.combined_df[self.combined_df["play_type"] == "run"]
-            .drop("play_type", axis=1)
-            .reset_index()
+            .drop(["play_type", "passer_id"], axis=1)
+            .reset_index(drop=True)
         )
         self.pass_df = (
             self.combined_df[self.combined_df["play_type"] == "pass"]
             .drop("play_type", axis=1)
-            .reset_index()
+            .reset_index(drop=True)
         )
         logger.info("Successfully split into run and pass dataframes")
-
-    def split_into_test_and_training_dataframes(
-        self, df: pd.DataFrame, test_size: float = 0.25
-    ):
-        """
-        splits dataframe into test and training dataset
-
-        Args:
-            df (pd.DataFrame): dataframe to be split into training and test dataframe
-            test_size (float, optional): size of the test set. Defaults to 0.25.
-
-        Returns:
-            pd.DataFrame: training and test set
-        """
-        logger.info("Splitting into train and test dataframes")
-        # set seed for reproducability
-        seed = 1887  # nur der HSV
-
-        # Shuffle the DataFrame
-        df = df.sample(frac=1, random_state=seed)
-
-        # calculate size of test df
-        split_size = int(test_size * len(df))
-
-        # Split the DataFrame
-        test_df = df.head(split_size)
-        training_df = df.tail(len(df) - split_size)
-        test_df.reset_index(inplace=True)
-        training_df.reset_index(inplace=True)
-        logger.info("Successfully split into train and test dataframes")
-        return training_df, test_df
 
     def outlier_removal(self, training_df, factor_iqr: float = 3.0):
         logger.info("Removing outliers")

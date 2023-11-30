@@ -17,7 +17,6 @@
     "rusher_id",
     "penalty_player_id",
     "tackle_for_loss_2_player_id",
-    "passer_id",
     "stadium_id",
     "sack_player_name",
     "assist_tackle_2_player_name",
@@ -201,7 +200,8 @@
     "fumble",
     "qb_scramble",
     "qb_hit",
-    "wpa"
+    "wpa",
+    "epa"
   ],
 
   "correlated_drops": [
@@ -214,14 +214,14 @@
     "time",
     "yrdln",
     "home_timeouts_remaining",
-    "away_timeouts_remaining",    
+    "away_timeouts_remaining",
     "drive_quarter_start",
     "cpoe",
     "ep",
     "wp",
-    "epa",
     "half_seconds_remaining",
-    "game_half"
+    "game_half",
+    "series"
   ],
 
   "biased_drops": [
@@ -354,7 +354,6 @@
     "cp",
     "weather",
     "desc",
-    "series",
     "week"
   ]
 }
