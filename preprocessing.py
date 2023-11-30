@@ -43,8 +43,8 @@ from sklearn.pipeline import Pipeline
 from sklearn.preprocessing import OneHotEncoder, MinMaxScaler, StandardScaler
 from sklearn.compose import ColumnTransformer
 from loguru import logger
-import scipy
 import sklearn
+import re
 
 
 class AbstractNFLPreprocessing(ABC):
@@ -67,6 +67,7 @@ class AbstractNFLPreprocessing(ABC):
         self.make_combined_df(csv_file_list)
         self.drop_irrelevant_observations()
         self.insert_missing_values()
+        self.transform_columns()
         self.drop_irrelevant_features()
         self.split_into_run_and_pass_dataframes()
         self.clear_nas(self.run_df)
@@ -89,6 +90,10 @@ class AbstractNFLPreprocessing(ABC):
 
     @abstractmethod
     def insert_missing_values(self):
+        pass
+
+    @abstractmethod
+    def transform_columns(self):
         pass
 
     @abstractmethod
@@ -188,16 +193,36 @@ class NFLPreprocessing(AbstractNFLPreprocessing):
         )
         logger.info("Successfully deleted irrelevant observations")
 
+    def transform_columns(self):
+        logger.info("Transforming columns")
+        # adjust the spread line to the view of the team with possession of the ball
+        self.combined_df.loc[
+            self.combined_df["posteam_type"] == "away", "spread_line"
+        ] *= -1
+
+        # transform drive start yard line
+        def transform_dsyl(row):
+            match = re.match(r"([A-Z]+)(\d+)", row["drive_start_yard_line"])
+            if match:
+                team, number = match.groups()
+                return int(number) if row["posteam"] == team else 100 - int(number)
+            elif " " in row["drive_start_yard_line"]:
+                # Handle the case where there is a space but no match
+                return int(row["drive_start_yard_line"].split()[1])
+            else:
+                # Handle the case where there is no space (e.g., '50')
+                return int(row["drive_start_yard_line"])
+
+        self.combined_df["drive_start_yard_line"] = self.combined_df.apply(
+            transform_dsyl, axis=1
+        )
+        logger.info("Successfully transformed columns")
+
     def insert_missing_values(self):
         """inserts missing values for the roof variable.
         please refer to insertion.txt for source of values"""
 
         logger.info("Inserting missing values")
-
-        # adjust the spread line to the view of the team with possession of the ball
-        self.combined_df.loc[
-            self.combined_df["posteam_type"] == "away", "spread_line"
-        ] *= -1
 
         # open json file
         with open("roof_insertion.json") as file:
