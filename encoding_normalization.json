@@ -8,13 +8,20 @@
     "spread_line",
     "total_line",
     "season",
-    "ydsnet",
-    "drive_play_count",
     "posteam_timeouts_remaining",
-    "defteam_timeouts_remaining"
+    "defteam_timeouts_remaining",
+    "quarter_seconds_remaining",
+    "half_seconds_remaining",
+    "drive_start_yard_line"
   ],
 
   "standardizing_features": ["score_differential"],
 
-  "one_hot_features": ["posteam", "posteam_type", "defteam", "roof", "season_type"]
+  "one_hot_features": [
+    "posteam",
+    "posteam_type",
+    "defteam",
+    "roof",
+    "season_type"
+  ]
 }

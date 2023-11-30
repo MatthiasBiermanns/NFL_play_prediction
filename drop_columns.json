@@ -209,7 +209,6 @@
     "away_team",
     "side_of_field",
     "game_date",
-    "quarter_seconds_remaining",
     "qtr",
     "time",
     "yrdln",
@@ -219,7 +218,6 @@
     "cpoe",
     "ep",
     "wp",
-    "half_seconds_remaining",
     "game_half",
     "series"
   ],
