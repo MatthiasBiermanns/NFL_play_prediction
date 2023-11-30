@@ -65,12 +65,12 @@ class AbstractNFLPreprocessing(ABC):
 
         # apply preprocessing steps
         self.make_combined_df(csv_file_list)
-        self.combined_df = self.drop_irrelevant_observations()
+        self.drop_irrelevant_observations()
         self.insert_missing_values()
         self.drop_irrelevant_features()
         self.split_into_run_and_pass_dataframes()
-        self.run_df = self.clear_nas(self.run_df)
-        self.pass_df = self.clear_nas(self.pass_df)
+        self.clear_nas(self.run_df)
+        self.clear_nas(self.pass_df)
         logger.info("Preparing pipeline")
         self.encoder = self.make_encoder()
         self.minmax_scaler = self.make_minmax_scaler()
@@ -155,20 +155,38 @@ class NFLPreprocessing(AbstractNFLPreprocessing):
         drops non pass- or run plays and plays with rare or unpredictable outcomes
         """
         logger.info("Removing irrelevant observations")
-        df = self.combined_df
         # remove non-pass and non-run plays from dataframe
-        df = df[df["play_type"].isin(["pass", "run"])]
-        df = df.reset_index(drop=True)
+        self.combined_df = self.combined_df[
+            self.combined_df["play_type"].isin(["pass", "run"])
+        ]
+        self.combined_df = self.combined_df.reset_index(drop=True)
+
         # drop plays with penalties
-        df = df[df["penalty"] == 0]
+        self.combined_df.drop(
+            self.combined_df[self.combined_df["penalty"] == 1].index,
+            axis=0,
+            inplace=True,
+        )
+
         # drop plays with laterals
-        df = df[df["lateral_reception"] == 0]
+        self.combined_df.drop(
+            self.combined_df[self.combined_df["lateral_reception"] == 1].index,
+            axis=0,
+            inplace=True,
+        )
         # drop plays with replays or challenges
-        df = df[df["aborted_play"] == 0]
+        self.combined_df.drop(
+            self.combined_df[self.combined_df["aborted_play"] == 1].index,
+            axis=0,
+            inplace=True,
+        )
         # drop two point conversion plays
-        df = df[df["two_point_conv_result"].isna()]
+        self.combined_df.drop(
+            self.combined_df[~self.combined_df["two_point_conv_result"].isna()].index,
+            axis=0,
+            inplace=True,
+        )
         logger.info("Successfully deleted irrelevant observations")
-        return df
 
     def insert_missing_values(self):
         """inserts missing values for the roof variable.
@@ -216,8 +234,8 @@ class NFLPreprocessing(AbstractNFLPreprocessing):
 
     def clear_nas(self, dataframe):
         logger.info("Clearing obervations with NAs")
+        dataframe.dropna(inplace=True)
         logger.info("Successfully cleared observations with NAs")
-        return dataframe.dropna(inplace=True)
 
     def split_into_run_and_pass_dataframes(self):
         """
