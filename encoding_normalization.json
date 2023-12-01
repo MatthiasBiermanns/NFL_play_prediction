@@ -23,5 +23,16 @@
     "defteam",
     "roof",
     "season_type"
+  ],
+
+  "outlier_relevant_features": [
+    "yardline_100",
+    "ydstogo",
+    "td_prob",
+    "drive_play_count",
+    "spread_line",
+    "total_line",
+    "drive_start_yard_line",
+    "score_differential"
   ]
 }

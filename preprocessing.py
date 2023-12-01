@@ -12,6 +12,10 @@ use this script as follows:
         minmax_scaler = MinMax scaler
         standardizer = Standardizer
         prepro = Column Transformer of the previous three
+        *outlier_relevant_features = feature-list of all features to select for strict outlier_removal
+        strict_factor_iqr = factor for strict outlier removal (default 1.5)
+        self.loose_factor_iqr = factor for loose outlier removal (default 3.0)
+        self.strict_columns = columns to apply strict outlier removal to
 
         iii) the instance contains the following methods (marked with * are especially important for further usage such as model development):
 
@@ -49,7 +53,7 @@ import imblearn.pipeline
 class AbstractNFLPreprocessing(ABC):
     """abstract class to create layout for NFLPreprocessing class"""
 
-    def __init__(self, csv_file_list: list, factor_iqr: float = 3.0) -> None:
+    def __init__(self, csv_file_list: list, strict_factor_iqr: float = 1.5, loose_factor_iqr: float = 3.0, strict_columns:list = []) -> None:
         super().__init__()
         logger.info("--- Executing Preprocessing Steps ---")
 
@@ -58,14 +62,21 @@ class AbstractNFLPreprocessing(ABC):
         self.run_df = None
         self.pass_df = None
         self.prepro = None
+        self.outlier_relevant_features = None
 
         self.encoder = OneHotEncoder(drop="first")
         self.outlier_remover = FunctionSampler(func=self.outlier_sampler_iqr, validate=False)
         self.minmax_scaler = MinMaxScaler()
         self.standardizer = StandardScaler()
 
-        self.factor_iqr = factor_iqr
+        self.strict_factor_iqr = strict_factor_iqr
+        self.loose_factor_iqr = loose_factor_iqr
+        self.strict_columns = strict_columns
 
+        # declare outlier relevant features
+        with open("encoding_normalization.json") as file:
+            encoding_normalization = json.load(file)
+            self.outlier_relevant_features = encoding_normalization['outlier_relevant_features']
 
         # apply preprocessing steps
         self.make_combined_df(csv_file_list)
@@ -119,8 +130,13 @@ class AbstractNFLPreprocessing(ABC):
 
 
 class NFLPreprocessing(AbstractNFLPreprocessing):
-    def __init__(self, file_list: list) -> None:
-        super().__init__(file_list)
+    def __init__(self, file_list: list, strict_factor_iqr: float = 1.5, loose_factor_iqr: float = 3.0, strict_columns:list = []) -> None:
+        super().__init__(
+            file_list, 
+            strict_factor_iqr=strict_factor_iqr, 
+            loose_factor_iqr=loose_factor_iqr, 
+            strict_columns=strict_columns
+        )
 
     def make_combined_df(self, csv_file_list: list):
         """combines dataframes from csv list into one large dataframe
@@ -330,20 +346,23 @@ class NFLPreprocessing(AbstractNFLPreprocessing):
         indices = [x for x in df.index]
         out_indexlist = []
 
+        
         for col in features:
-            # ignore string-type features
-            if is_string_dtype(X[col]):
+            # ignore features without outlier potential & protect against runtime errors caused by string-type
+            if col not in self.outlier_relevant_features or is_string_dtype(X[col]):
                 continue
-
-            #Using nanpercentile instead of percentile because of nan values
+            
+            # Using nanpercentile instead of percentile because of nan values
             Q1 = np.nanpercentile(df[col], 25.)
             Q3 = np.nanpercentile(df[col], 75.)
-
-            cut_off = (Q3 - Q1) * self.factor_iqr
+            
+            if col in self.strict_columns:
+                cut_off = (Q3 - Q1) * self.strict_factor_iqr
+            else:
+                cut_off = (Q3 - Q1) * self.loose_factor_iqr
+            
             upper, lower = Q3 + cut_off, Q1 - cut_off
-
             outliers_index = df[col][(df[col] < lower) | (df[col] > upper)].index.tolist()
-            #outliers = df[col][(df[col] < lower) | (df[col] > upper)].values
             out_indexlist.extend(outliers_index)
 
         #using set to remove duplicates
