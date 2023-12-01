@@ -39,6 +39,7 @@ use this script as follows:
 from abc import ABC, abstractmethod
 import numpy as np
 import pandas as pd
+from pandas.api.types import is_string_dtype
 import json
 from sklearn.pipeline import Pipeline
 from sklearn.preprocessing import OneHotEncoder, MinMaxScaler, StandardScaler
@@ -47,6 +48,7 @@ from loguru import logger
 import sklearn
 import re
 from imblearn import FunctionSampler
+import imblearn.pipeline
 
 class AbstractNFLPreprocessing(ABC):
     """abstract class to create layout for NFLPreprocessing class"""
@@ -347,11 +349,14 @@ class NFLPreprocessing(AbstractNFLPreprocessing):
         df = X.copy()
         df['Outcome'] = y
 
-        indices = [x for x in df.index]    
+        indices = [x for x in df.index]
         out_indexlist = []
 
         for col in features:
-        
+            # ignore string-type features
+            if is_string_dtype(X[col]):
+                continue
+
             #Using nanpercentile instead of percentile because of nan values
             Q1 = np.nanpercentile(df[col], 25.)
             Q3 = np.nanpercentile(df[col], 75.)
@@ -372,11 +377,10 @@ class NFLPreprocessing(AbstractNFLPreprocessing):
 
     def make_encoder(self):
         # create ColumnTransformer
-        encoder = Pipeline(steps=[("encoder", OneHotEncoder(drop="first"))])
-        return encoder
+        # encoder = Pipeline(steps=[("encoder", OneHotEncoder(drop="first"))])
+        return OneHotEncoder(drop='first')
 
     def make_outlier_remover(self):
-        #outlier_remover = Pipeline(steps=[("outlier_remover", FunctionSampler(func=self.outlier_sampler_iqr, validate=False))])
         return FunctionSampler(func=self.outlier_sampler_iqr, validate=False)
     
     def make_standardizer(self):
@@ -404,11 +408,6 @@ class NFLPreprocessing(AbstractNFLPreprocessing):
                         encoding_normalization["one_hot_features"],
                     ),
                     (
-                        "outlier_remover",
-                        self.outlier_remover,
-                        encoding_normalization["minmax_features"] + encoding_normalization["standardizing_features"], # reuse as all features must get outliers removed
-                    ),
-                    (
                         "standardization",
                         self.standardizer,
                         encoding_normalization["standardizing_features"],
@@ -419,9 +418,18 @@ class NFLPreprocessing(AbstractNFLPreprocessing):
                         encoding_normalization["minmax_features"],
                     ),
                 ],
-                remainder='passthrough'
             )
         return preprocessor
 
     def make_preprocessing_pipeline(self):
-        return Pipeline(steps=[("preprocessor", self.prepro)])
+        return imblearn.pipeline.Pipeline(steps=[
+                (
+                    "outlier_remover",
+                    self.outlier_remover,
+                ),
+                (
+                    "preprocessor", 
+                    self.prepro
+                )
+            ]
+        )
