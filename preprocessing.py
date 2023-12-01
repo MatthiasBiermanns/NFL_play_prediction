@@ -338,28 +338,41 @@ class NFLPreprocessing(AbstractNFLPreprocessing):
         feature_names = self.get_prepro_feature_names_from_pipeline()
         return pd.DataFrame(transformed, columns=feature_names)
     
-    def outlier_sampler_iqr(self, X, y):
+    def outlier_sampler_iqr(self, X, y, strict_factor_iqr = 1.5, loose_factor_iqr = 3.0, strict_columns = [], omit_columns = []):
+        logger.info('Outlier running with these params:')
+        logger.info('>>> strict_factor_iqr: ' + str(strict_factor_iqr))
+        logger.info('>>> loose_factor_iqr: ' + str(loose_factor_iqr))
+        logger.info('>>> strict_columns: ' + str(strict_columns))
+        logger.info('>>> omit_columns: ' + str(omit_columns))
+
         features = X.columns
         df = X.copy()
         df['Outcome'] = y
 
         indices = [x for x in df.index]
         out_indexlist = []
-
         
         for col in features:
-            # ignore features without outlier potential & protect against runtime errors caused by string-type
-            if col not in self.outlier_relevant_features or is_string_dtype(X[col]):
+            # ignore features of string-type
+            if is_string_dtype(X[col]):
                 continue
-            
+
+            # ignore columns specified by user
+            if col in omit_columns:
+                continue
+
+            # ignore not-relevant features
+            if col not in self.outlier_relevant_features:
+                continue
+
             # Using nanpercentile instead of percentile because of nan values
             Q1 = np.nanpercentile(df[col], 25.)
             Q3 = np.nanpercentile(df[col], 75.)
             
-            if col in self.strict_columns:
-                cut_off = (Q3 - Q1) * self.strict_factor_iqr
+            if col in strict_columns:
+                cut_off = (Q3 - Q1) * strict_factor_iqr
             else:
-                cut_off = (Q3 - Q1) * self.loose_factor_iqr
+                cut_off = (Q3 - Q1) * loose_factor_iqr
             
             upper, lower = Q3 + cut_off, Q1 - cut_off
             outliers_index = df[col][(df[col] < lower) | (df[col] > upper)].index.tolist()
