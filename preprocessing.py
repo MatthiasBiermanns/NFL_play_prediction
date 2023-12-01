@@ -8,9 +8,9 @@ use this script as follows:
         combined_df = dataframes of all years combined into one large dataframe
         *run_df = complete run dataframe
         *pass_df = complete pass dataframe
-        encoder = Pipeline of one hot encoding
-        minmax_scaler = Pipeline of min max scaler
-        standardizer = Pipeline of standardizer
+        encoder = one hot encoding
+        minmax_scaler = MinMax scaler
+        standardizer = Standardizer
         prepro = Column Transformer of the previous three
 
         iii) the instance contains the following methods (marked with * are especially important for further usage such as model development):
@@ -21,10 +21,7 @@ use this script as follows:
         drop_irrelevant_features(self): drops irrelevant features, such as ids and names
         clear_nas(self): removes remaining NAs
         split_into_run_and_pass_dataframes(self): splits combined_df into run and passing dataframe depending on the play_type attribute
-        outlier_removal(self, training_df, factor_iqr: float = 3.0): removes outliers on the provided training_df according to the optionally provided iqr factor
-        make_encoder(self): makes Pipeline of one hot encoding
-        make_standardizer(self): makes Pipeline of min max scaler
-        make_minmax_scaler(self): makes Pipeline of standard scaler
+        outlier_sampler_iqr(self, X, y): removes outliers on the provided training_df according to the initially provided iqr factor
         make_preprocessor(self): makes Column Transformer of the previous three
         * make_preprocessing_pipeline(self): returns a Pipeline object by providing the steps stored in self.prepro
         * get_prepro_feature_names_from_pipeline(self) -> list: returns the feature names from the ColumnTransformer containing the preprocessing pipeline steps
@@ -41,7 +38,6 @@ import numpy as np
 import pandas as pd
 from pandas.api.types import is_string_dtype
 import json
-from sklearn.pipeline import Pipeline
 from sklearn.preprocessing import OneHotEncoder, MinMaxScaler, StandardScaler
 from sklearn.compose import ColumnTransformer
 from loguru import logger
@@ -53,7 +49,7 @@ import imblearn.pipeline
 class AbstractNFLPreprocessing(ABC):
     """abstract class to create layout for NFLPreprocessing class"""
 
-    def __init__(self, csv_file_list: list, test_size: float = 0.25, factor_iqr: float = 3.0) -> None:
+    def __init__(self, csv_file_list: list, factor_iqr: float = 3.0) -> None:
         super().__init__()
         logger.info("--- Executing Preprocessing Steps ---")
 
@@ -61,13 +57,15 @@ class AbstractNFLPreprocessing(ABC):
         self.combined_df = None
         self.run_df = None
         self.pass_df = None
-        self.encoder = None
-        self.outlier_remover = None
-        self.minmax_scaler = None
-        self.standardizer = None
         self.prepro = None
 
+        self.encoder = OneHotEncoder(drop="first")
+        self.outlier_remover = FunctionSampler(func=self.outlier_sampler_iqr, validate=False)
+        self.minmax_scaler = MinMaxScaler()
+        self.standardizer = StandardScaler()
+
         self.factor_iqr = factor_iqr
+
 
         # apply preprocessing steps
         self.make_combined_df(csv_file_list)
@@ -79,10 +77,6 @@ class AbstractNFLPreprocessing(ABC):
         self.clear_nas(self.run_df)
         self.clear_nas(self.pass_df)
         logger.info("Preparing pipeline")
-        self.encoder = self.make_encoder()
-        self.outlier_remover = self.make_outlier_remover()
-        self.minmax_scaler = self.make_minmax_scaler()
-        self.standardizer = self.make_standardizer()
         self.prepro = self.make_preprocessor()
         logger.info("Successfully prepared pipeline")
         logger.info("--- Successfully Loaded Preprocessing Steps ---")
@@ -113,22 +107,6 @@ class AbstractNFLPreprocessing(ABC):
 
     @abstractmethod
     def split_into_run_and_pass_dataframes(self):
-        pass
-
-    @abstractmethod
-    def make_encoder(self):
-        pass
-
-    @abstractmethod
-    def make_outlier_remover(self):
-        pass
-
-    @abstractmethod
-    def make_minmax_scaler(self):
-        pass
-
-    @abstractmethod
-    def make_standardizer(self):
         pass
 
     @abstractmethod
@@ -374,22 +352,6 @@ class NFLPreprocessing(AbstractNFLPreprocessing):
         clean_data = np.setdiff1d(indices,out_indexlist)
 
         return X.loc[clean_data], y.loc[clean_data]
-
-    def make_encoder(self):
-        # create ColumnTransformer
-        # encoder = Pipeline(steps=[("encoder", OneHotEncoder(drop="first"))])
-        return OneHotEncoder(drop='first')
-
-    def make_outlier_remover(self):
-        return FunctionSampler(func=self.outlier_sampler_iqr, validate=False)
-    
-    def make_standardizer(self):
-        #standardizer = Pipeline(steps=[("standardization", StandardScaler())])
-        return StandardScaler()
-
-    def make_minmax_scaler(self):
-        #minmax_scaler = Pipeline(steps=[("minmax", MinMaxScaler())])
-        return MinMaxScaler()
 
     def make_preprocessor(self):
         """combines make_encoder(), make_standardizer(), make_minmax_scaler() into a single
