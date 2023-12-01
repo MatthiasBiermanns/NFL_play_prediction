@@ -37,6 +37,7 @@ use this script as follows:
 
 
 from abc import ABC, abstractmethod
+import numpy as np
 import pandas as pd
 import json
 from sklearn.pipeline import Pipeline
@@ -45,12 +46,12 @@ from sklearn.compose import ColumnTransformer
 from loguru import logger
 import sklearn
 import re
-from outlier import OutlierRemoval
+from imblearn import FunctionSampler
 
 class AbstractNFLPreprocessing(ABC):
     """abstract class to create layout for NFLPreprocessing class"""
 
-    def __init__(self, csv_file_list: list, test_size: float = 0.25) -> None:
+    def __init__(self, csv_file_list: list, test_size: float = 0.25, factor_iqr: float = 3.0) -> None:
         super().__init__()
         logger.info("--- Executing Preprocessing Steps ---")
 
@@ -63,6 +64,8 @@ class AbstractNFLPreprocessing(ABC):
         self.minmax_scaler = None
         self.standardizer = None
         self.prepro = None
+
+        self.factor_iqr = factor_iqr
 
         # apply preprocessing steps
         self.make_combined_df(csv_file_list)
@@ -338,6 +341,34 @@ class NFLPreprocessing(AbstractNFLPreprocessing):
         transformed = transformed.todense()
         feature_names = self.get_prepro_feature_names_from_pipeline()
         return pd.DataFrame(transformed, columns=feature_names)
+    
+    def outlier_sampler_iqr(self, X, y):
+        features = X.columns
+        df = X.copy()
+        df['Outcome'] = y
+
+        indices = [x for x in df.index]    
+        out_indexlist = []
+
+        for col in features:
+        
+            #Using nanpercentile instead of percentile because of nan values
+            Q1 = np.nanpercentile(df[col], 25.)
+            Q3 = np.nanpercentile(df[col], 75.)
+
+            cut_off = (Q3 - Q1) * self.factor_iqr
+            upper, lower = Q3 + cut_off, Q1 - cut_off
+
+            outliers_index = df[col][(df[col] < lower) | (df[col] > upper)].index.tolist()
+            #outliers = df[col][(df[col] < lower) | (df[col] > upper)].values
+            out_indexlist.extend(outliers_index)
+
+        #using set to remove duplicates
+        out_indexlist = list(set(out_indexlist))
+
+        clean_data = np.setdiff1d(indices,out_indexlist)
+
+        return X.loc[clean_data], y.loc[clean_data]
 
     def make_encoder(self):
         # create ColumnTransformer
@@ -345,16 +376,16 @@ class NFLPreprocessing(AbstractNFLPreprocessing):
         return encoder
 
     def make_outlier_remover(self):
-        outlier_remover = Pipeline(steps=[("outlier_remover", OutlierRemoval())])
-        return outlier_remover
+        #outlier_remover = Pipeline(steps=[("outlier_remover", FunctionSampler(func=self.outlier_sampler_iqr, validate=False))])
+        return FunctionSampler(func=self.outlier_sampler_iqr, validate=False)
     
     def make_standardizer(self):
-        standardizer = Pipeline(steps=[("standardization", StandardScaler())])
-        return standardizer
+        #standardizer = Pipeline(steps=[("standardization", StandardScaler())])
+        return StandardScaler()
 
     def make_minmax_scaler(self):
-        minmax_scaler = Pipeline(steps=[("minmax", MinMaxScaler())])
-        return minmax_scaler
+        #minmax_scaler = Pipeline(steps=[("minmax", MinMaxScaler())])
+        return MinMaxScaler()
 
     def make_preprocessor(self):
         """combines make_encoder(), make_standardizer(), make_minmax_scaler() into a single
@@ -387,7 +418,8 @@ class NFLPreprocessing(AbstractNFLPreprocessing):
                         self.minmax_scaler,
                         encoding_normalization["minmax_features"],
                     ),
-                ]
+                ],
+                remainder='passthrough'
             )
         return preprocessor
 
