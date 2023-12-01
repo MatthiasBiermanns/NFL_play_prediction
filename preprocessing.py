@@ -63,9 +63,9 @@ class AbstractNFLPreprocessing(ABC):
         self.pass_df = None
         self.prepro = None
         self.outlier_relevant_features = None
+        self.outlier_remover = None
 
         self.encoder = OneHotEncoder(drop="first")
-        self.outlier_remover = FunctionSampler(func=self.outlier_sampler_iqr, validate=False)
         self.minmax_scaler = MinMaxScaler()
         self.standardizer = StandardScaler()
 
@@ -88,6 +88,7 @@ class AbstractNFLPreprocessing(ABC):
         self.clear_nas(self.run_df)
         self.clear_nas(self.pass_df)
         logger.info("Preparing pipeline")
+        self.reset_outlier_remover()
         self.prepro = self.make_preprocessor()
         logger.info("Successfully prepared pipeline")
         logger.info("--- Successfully Loaded Preprocessing Steps ---")
@@ -118,6 +119,10 @@ class AbstractNFLPreprocessing(ABC):
 
     @abstractmethod
     def split_into_run_and_pass_dataframes(self):
+        pass
+
+    @abstractmethod
+    def reset_outlier_remover(self):
         pass
 
     @abstractmethod
@@ -384,6 +389,9 @@ class NFLPreprocessing(AbstractNFLPreprocessing):
         clean_data = np.setdiff1d(indices,out_indexlist)
 
         return X.loc[clean_data], y.loc[clean_data]
+    
+    def reset_outlier_remover(self):
+        self.outlier_remover = FunctionSampler(func=self.outlier_sampler_iqr, validate=False)
 
     def make_preprocessor(self):
         """combines make_encoder(), make_standardizer(), make_minmax_scaler() into a single
@@ -416,6 +424,7 @@ class NFLPreprocessing(AbstractNFLPreprocessing):
         return preprocessor
 
     def make_preprocessing_pipeline(self):
+        self.reset_outlier_remover()
         return imblearn.pipeline.Pipeline(steps=[
                 (
                     "outlier_remover",
