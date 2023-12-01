@@ -344,11 +344,11 @@ class NFLPreprocessing(AbstractNFLPreprocessing):
         return pd.DataFrame(transformed, columns=feature_names)
     
     def outlier_sampler_iqr(self, X, y, strict_factor_iqr = 1.5, loose_factor_iqr = 3.0, strict_columns = [], omit_columns = []):
-        logger.info('Outlier running with these params:')
-        logger.info('>>> strict_factor_iqr: ' + str(strict_factor_iqr))
-        logger.info('>>> loose_factor_iqr: ' + str(loose_factor_iqr))
-        logger.info('>>> strict_columns: ' + str(strict_columns))
-        logger.info('>>> omit_columns: ' + str(omit_columns))
+        # logger.info('Outlier running with these params:')
+        # logger.info('>>> strict_factor_iqr: ' + str(strict_factor_iqr))
+        # logger.info('>>> loose_factor_iqr: ' + str(loose_factor_iqr))
+        # logger.info('>>> strict_columns: ' + str(strict_columns))
+        # logger.info('>>> omit_columns: ' + str(omit_columns))
 
         features = X.columns
         df = X.copy()
