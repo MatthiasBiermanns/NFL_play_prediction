@@ -13,9 +13,6 @@ use this script as follows:
         standardizer = Standardizer
         prepro = Column Transformer of the previous three
         *outlier_relevant_features = feature-list of all features to select for strict outlier_removal
-        strict_factor_iqr = factor for strict outlier removal (default 1.5)
-        self.loose_factor_iqr = factor for loose outlier removal (default 3.0)
-        self.strict_columns = columns to apply strict outlier removal to
 
         iii) the instance contains the following methods (marked with * are especially important for further usage such as model development):
 
@@ -26,6 +23,7 @@ use this script as follows:
         clear_nas(self): removes remaining NAs
         split_into_run_and_pass_dataframes(self): splits combined_df into run and passing dataframe depending on the play_type attribute
         outlier_sampler_iqr(self, X, y): removes outliers on the provided training_df according to the initially provided iqr factor
+        reset_outlier_removal(): creates a new instance for the pipeline
         make_preprocessor(self): makes Column Transformer of the previous three
         * make_preprocessing_pipeline(self): returns a Pipeline object by providing the steps stored in self.prepro
         * get_prepro_feature_names_from_pipeline(self) -> list: returns the feature names from the ColumnTransformer containing the preprocessing pipeline steps
@@ -53,7 +51,7 @@ import imblearn.pipeline
 class AbstractNFLPreprocessing(ABC):
     """abstract class to create layout for NFLPreprocessing class"""
 
-    def __init__(self, csv_file_list: list, strict_factor_iqr: float = 1.5, loose_factor_iqr: float = 3.0, strict_columns:list = []) -> None:
+    def __init__(self, csv_file_list: list) -> None:
         super().__init__()
         logger.info("--- Executing Preprocessing Steps ---")
 
@@ -68,10 +66,6 @@ class AbstractNFLPreprocessing(ABC):
         self.encoder = OneHotEncoder(drop="first")
         self.minmax_scaler = MinMaxScaler()
         self.standardizer = StandardScaler()
-
-        self.strict_factor_iqr = strict_factor_iqr
-        self.loose_factor_iqr = loose_factor_iqr
-        self.strict_columns = strict_columns
 
         # declare outlier relevant features
         with open("encoding_normalization.json") as file:
