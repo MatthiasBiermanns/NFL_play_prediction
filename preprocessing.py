@@ -8,10 +8,14 @@ use this script as follows:
         combined_df = dataframes of all years combined into one large dataframe
         *run_df = complete run dataframe
         *pass_df = complete pass dataframe
-        encoder = Pipeline of one hot encoding
-        minmax_scaler = Pipeline of min max scaler
-        standardizer = Pipeline of standardizer
+        encoder = one hot encoding
+        minmax_scaler = MinMax scaler
+        standardizer = Standardizer
         prepro = Column Transformer of the previous three
+        *outlier_relevant_features = feature-list of all features to select for strict outlier_removal
+        strict_factor_iqr = factor for strict outlier removal (default 1.5)
+        self.loose_factor_iqr = factor for loose outlier removal (default 3.0)
+        self.strict_columns = columns to apply strict outlier removal to
 
         iii) the instance contains the following methods (marked with * are especially important for further usage such as model development):
 
@@ -21,10 +25,7 @@ use this script as follows:
         drop_irrelevant_features(self): drops irrelevant features, such as ids and names
         clear_nas(self): removes remaining NAs
         split_into_run_and_pass_dataframes(self): splits combined_df into run and passing dataframe depending on the play_type attribute
-        outlier_removal(self, training_df, factor_iqr: float = 3.0): removes outliers on the provided training_df according to the optionally provided iqr factor
-        make_encoder(self): makes Pipeline of one hot encoding
-        make_standardizer(self): makes Pipeline of min max scaler
-        make_minmax_scaler(self): makes Pipeline of standard scaler
+        outlier_sampler_iqr(self, X, y): removes outliers on the provided training_df according to the initially provided iqr factor
         make_preprocessor(self): makes Column Transformer of the previous three
         * make_preprocessing_pipeline(self): returns a Pipeline object by providing the steps stored in self.prepro
         * get_prepro_feature_names_from_pipeline(self) -> list: returns the feature names from the ColumnTransformer containing the preprocessing pipeline steps
@@ -37,20 +38,22 @@ use this script as follows:
 
 
 from abc import ABC, abstractmethod
+import numpy as np
 import pandas as pd
+from pandas.api.types import is_string_dtype
 import json
-from sklearn.pipeline import Pipeline
 from sklearn.preprocessing import OneHotEncoder, MinMaxScaler, StandardScaler
 from sklearn.compose import ColumnTransformer
 from loguru import logger
 import sklearn
 import re
-
+from imblearn import FunctionSampler
+import imblearn.pipeline
 
 class AbstractNFLPreprocessing(ABC):
     """abstract class to create layout for NFLPreprocessing class"""
 
-    def __init__(self, csv_file_list: list, test_size: float = 0.25) -> None:
+    def __init__(self, csv_file_list: list, strict_factor_iqr: float = 1.5, loose_factor_iqr: float = 3.0, strict_columns:list = []) -> None:
         super().__init__()
         logger.info("--- Executing Preprocessing Steps ---")
 
@@ -58,10 +61,22 @@ class AbstractNFLPreprocessing(ABC):
         self.combined_df = None
         self.run_df = None
         self.pass_df = None
-        self.encoder = None
-        self.minmax_scaler = None
-        self.standardizer = None
         self.prepro = None
+        self.outlier_relevant_features = None
+        self.outlier_remover = None
+
+        self.encoder = OneHotEncoder(drop="first")
+        self.minmax_scaler = MinMaxScaler()
+        self.standardizer = StandardScaler()
+
+        self.strict_factor_iqr = strict_factor_iqr
+        self.loose_factor_iqr = loose_factor_iqr
+        self.strict_columns = strict_columns
+
+        # declare outlier relevant features
+        with open("encoding_normalization.json") as file:
+            encoding_normalization = json.load(file)
+            self.outlier_relevant_features = encoding_normalization['outlier_relevant_features']
 
         # apply preprocessing steps
         self.make_combined_df(csv_file_list)
@@ -73,9 +88,7 @@ class AbstractNFLPreprocessing(ABC):
         self.clear_nas(self.run_df)
         self.clear_nas(self.pass_df)
         logger.info("Preparing pipeline")
-        self.encoder = self.make_encoder()
-        self.minmax_scaler = self.make_minmax_scaler()
-        self.standardizer = self.make_standardizer()
+        self.reset_outlier_remover()
         self.prepro = self.make_preprocessor()
         logger.info("Successfully prepared pipeline")
         logger.info("--- Successfully Loaded Preprocessing Steps ---")
@@ -109,19 +122,7 @@ class AbstractNFLPreprocessing(ABC):
         pass
 
     @abstractmethod
-    def make_encoder(self):
-        pass
-
-    @abstractmethod
-    def outlier_removal(self, training_df, factor_iqr):
-        pass
-
-    @abstractmethod
-    def make_minmax_scaler(self):
-        pass
-
-    @abstractmethod
-    def make_standardizer(self):
+    def reset_outlier_remover(self):
         pass
 
     @abstractmethod
@@ -134,8 +135,13 @@ class AbstractNFLPreprocessing(ABC):
 
 
 class NFLPreprocessing(AbstractNFLPreprocessing):
-    def __init__(self, file_list: list) -> None:
-        super().__init__(file_list)
+    def __init__(self, file_list: list, strict_factor_iqr: float = 1.5, loose_factor_iqr: float = 3.0, strict_columns:list = []) -> None:
+        super().__init__(
+            file_list, 
+            strict_factor_iqr=strict_factor_iqr, 
+            loose_factor_iqr=loose_factor_iqr, 
+            strict_columns=strict_columns
+        )
 
     def make_combined_df(self, csv_file_list: list):
         """combines dataframes from csv list into one large dataframe
@@ -302,46 +308,6 @@ class NFLPreprocessing(AbstractNFLPreprocessing):
         )
         logger.info("Successfully split into run and pass dataframes")
 
-    def outlier_removal(self, training_df, factor_iqr: float = 3.0):
-        logger.info("Removing outliers")
-        for column in training_df.columns:
-            # parse columns to a numeric data type
-            try:
-                training_df[column] = pd.to_numeric(training_df[column])
-                # check whether these are of type boolean and parse them if so
-                is_boolean = all(
-                    value in [float(0), float(1)] for value in training_df[column]
-                )
-                if is_boolean:
-                    training_df[column] = training_df[column].astype(bool)
-
-                # else remove outliers using the inter quartile range
-                else:
-                    quantile_value = 0.25
-                    q1 = training_df[column].quantile(quantile_value)
-                    q3 = training_df[column].quantile(1 - quantile_value)
-                    iqr = q3 - q1
-                    lower_bound = q1 - factor_iqr * iqr
-                    upper_bound = q3 + factor_iqr * iqr
-                    # remove outliers
-                    training_df = training_df.loc[
-                        ~(
-                            (training_df[column] < lower_bound)
-                            | (training_df[column] > upper_bound)
-                        )
-                    ]
-
-            # if parsing the column doesn't work the column is a string and can be handled as such
-            except ValueError:
-                training_df[column] = training_df[column].apply(str)
-
-        # parse back all columns to type object
-        for column in training_df.columns:
-            training_df[column] = training_df[column].astype(object)
-
-        logger.info("Successfully removed outliers")
-        return training_df
-
     def get_prepro_feature_names_from_pipeline(self) -> list:
         """only works when model has not been added to pipeline!
 
@@ -376,19 +342,56 @@ class NFLPreprocessing(AbstractNFLPreprocessing):
         transformed = transformed.todense()
         feature_names = self.get_prepro_feature_names_from_pipeline()
         return pd.DataFrame(transformed, columns=feature_names)
+    
+    def outlier_sampler_iqr(self, X, y, strict_factor_iqr = 1.5, loose_factor_iqr = 3.0, strict_columns = [], omit_columns = []):
+        # logger.info('Outlier running with these params:')
+        # logger.info('>>> strict_factor_iqr: ' + str(strict_factor_iqr))
+        # logger.info('>>> loose_factor_iqr: ' + str(loose_factor_iqr))
+        # logger.info('>>> strict_columns: ' + str(strict_columns))
+        # logger.info('>>> omit_columns: ' + str(omit_columns))
 
-    def make_encoder(self):
-        # create ColumnTransformer
-        encoder = Pipeline(steps=[("encoder", OneHotEncoder(drop="first"))])
-        return encoder
+        features = X.columns
+        df = X.copy()
+        df['Outcome'] = y
 
-    def make_standardizer(self):
-        standardizer = Pipeline(steps=[("standardization", StandardScaler())])
-        return standardizer
+        indices = [x for x in df.index]
+        out_indexlist = []
+        
+        for col in features:
+            # ignore features of string-type
+            if is_string_dtype(X[col]):
+                continue
 
-    def make_minmax_scaler(self):
-        minmax_scaler = Pipeline(steps=[("minmax", MinMaxScaler())])
-        return minmax_scaler
+            # ignore columns specified by user
+            if col in omit_columns:
+                continue
+
+            # ignore not-relevant features
+            if col not in self.outlier_relevant_features:
+                continue
+
+            # Using nanpercentile instead of percentile because of nan values
+            Q1 = np.nanpercentile(df[col], 25.)
+            Q3 = np.nanpercentile(df[col], 75.)
+            
+            if col in strict_columns:
+                cut_off = (Q3 - Q1) * strict_factor_iqr
+            else:
+                cut_off = (Q3 - Q1) * loose_factor_iqr
+            
+            upper, lower = Q3 + cut_off, Q1 - cut_off
+            outliers_index = df[col][(df[col] < lower) | (df[col] > upper)].index.tolist()
+            out_indexlist.extend(outliers_index)
+
+        #using set to remove duplicates
+        out_indexlist = list(set(out_indexlist))
+
+        clean_data = np.setdiff1d(indices,out_indexlist)
+
+        return X.loc[clean_data], y.loc[clean_data]
+    
+    def reset_outlier_remover(self):
+        self.outlier_remover = FunctionSampler(func=self.outlier_sampler_iqr, validate=False)
 
     def make_preprocessor(self):
         """combines make_encoder(), make_standardizer(), make_minmax_scaler() into a single
@@ -416,9 +419,20 @@ class NFLPreprocessing(AbstractNFLPreprocessing):
                         self.minmax_scaler,
                         encoding_normalization["minmax_features"],
                     ),
-                ]
+                ],
             )
         return preprocessor
 
     def make_preprocessing_pipeline(self):
-        return Pipeline(steps=[("preprocessor", self.prepro)])
+        self.reset_outlier_remover()
+        return imblearn.pipeline.Pipeline(steps=[
+                (
+                    "outlier_remover",
+                    self.outlier_remover,
+                ),
+                (
+                    "preprocessor", 
+                    self.prepro
+                )
+            ]
+        )
