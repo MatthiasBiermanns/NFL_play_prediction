@@ -135,12 +135,9 @@ class AbstractNFLPreprocessing(ABC):
 
 
 class NFLPreprocessing(AbstractNFLPreprocessing):
-    def __init__(self, file_list: list, strict_factor_iqr: float = 1.5, loose_factor_iqr: float = 3.0, strict_columns:list = []) -> None:
+    def __init__(self, file_list: list) -> None:
         super().__init__(
             file_list, 
-            strict_factor_iqr=strict_factor_iqr, 
-            loose_factor_iqr=loose_factor_iqr, 
-            strict_columns=strict_columns
         )
 
     def make_combined_df(self, csv_file_list: list):
@@ -423,7 +420,7 @@ class NFLPreprocessing(AbstractNFLPreprocessing):
             )
         return preprocessor
 
-    def make_preprocessing_pipeline(self):
+    def make_preprocessing_pipeline(self, model):
         self.reset_outlier_remover()
         return imblearn.pipeline.Pipeline(steps=[
                 (
@@ -433,6 +430,10 @@ class NFLPreprocessing(AbstractNFLPreprocessing):
                 (
                     "preprocessor", 
                     self.prepro
+                ),
+                (
+                    "regressor",
+                    model
                 )
             ]
         )
