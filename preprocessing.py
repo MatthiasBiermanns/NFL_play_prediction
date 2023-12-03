@@ -337,11 +337,12 @@ class NFLPreprocessing(AbstractNFLPreprocessing):
         feature_names = self.get_prepro_feature_names_from_pipeline()
         return pd.DataFrame(transformed, columns=feature_names)
     
-    def outlier_sampler_iqr(self, X, y, strict_factor_iqr = 1.5, loose_factor_iqr = 3.0, strict_columns = ['score_differential', 'drive_play_count', 'spread_line', 'total_line'], omit_columns = []):
+    def outlier_sampler_iqr(self, X, y, save_stats = False, strict_factor_iqr = 1.5, loose_factor_iqr = 3.0, strict_columns = ['score_differential', 'drive_play_count', 'spread_line', 'total_line'], omit_columns = []):
         #logger.info(f'Outlier removal with these params:')
+        #logger.info('>>> save_stats: ' + str(save_stats))
         #logger.info('>>> strict_factor_iqr: ' + str(strict_factor_iqr))
         #logger.info('>>> loose_factor_iqr: ' + str(loose_factor_iqr))
-        logger.info('>>> strict_columns: ' + str(strict_columns))
+        #logger.info('>>> strict_columns: ' + str(strict_columns))
         #logger.info('>>> omit_columns: ' + str(omit_columns))
 
         features = X.columns
@@ -386,37 +387,39 @@ class NFLPreprocessing(AbstractNFLPreprocessing):
             #using set to remove duplicates
             out_indexlist = list(set(out_indexlist))
 
-            new_row = {
-                'feature': col, 
-                'lower cutoff': lower,
-                'upper cutoff': upper,
-                'too low': len(df[col][df[col] < lower].index.tolist()), 
-                'included': len(df[col][(df[col] >= lower) & (df[col] <= upper)].index.tolist()), 
-                'too high': len(df[col][df[col] > upper].index.tolist()),
-                'excluded by feature': len(df[col][(df[col] < lower) | (df[col] > upper)].index.tolist()),
-                'unique outliers': len(out_indexlist) - old_unique_outliers
-            }
-            rows_list = rows_list + [new_row]
+            if save_stats:
+                new_row = {
+                    'feature': col, 
+                    'lower cutoff': lower,
+                    'upper cutoff': upper,
+                    'too low': len(df[col][df[col] < lower].index.tolist()), 
+                    'included': len(df[col][(df[col] >= lower) & (df[col] <= upper)].index.tolist()), 
+                    'too high': len(df[col][df[col] > upper].index.tolist()),
+                    'excluded by feature': len(df[col][(df[col] < lower) | (df[col] > upper)].index.tolist()),
+                    'unique outliers': len(out_indexlist) - old_unique_outliers
+                }
+                rows_list = rows_list + [new_row]
 
 
         # counting excluded outliers
-        new_row = {
-            'feature': 'overall', 
-            'lower cutoff': '',
-            'upper cutoff': '',
-            'too low': reduce(lambda a, b: a+b, [row['too low'] for row in rows_list]), 
-            'included': '',
-            'too high': reduce(lambda a, b: a+b, [row['too high'] for row in rows_list]),
-            'unique outliers': len(out_indexlist)
-        }
-        rows_list = rows_list + [new_row]
+        if save_stats:
+            new_row = {
+                'feature': 'overall', 
+                'lower cutoff': '',
+                'upper cutoff': '',
+                'too low': reduce(lambda a, b: a+b, [row['too low'] for row in rows_list]), 
+                'included': '',
+                'too high': reduce(lambda a, b: a+b, [row['too high'] for row in rows_list]),
+                'unique outliers': len(out_indexlist)
+            }
+            rows_list = rows_list + [new_row]
 
-        #check if file exists, to not overwrite it
-        counter = 0
-        while(os.path.isfile(f'./results/outlier_statistics_{len(strict_columns)}_strict_{counter}.xlsx')):
-            counter = counter + 1
-        pd.DataFrame(rows_list).to_excel(f'./results/outlier_statistics_{len(strict_columns)}_strict_{counter}.xlsx')
-        
+            #check if file exists, to not overwrite it
+            counter = 0
+            while(os.path.isfile(f'./results/outlier_statistics_{len(strict_columns)}_strict_{counter}.xlsx')):
+                counter = counter + 1
+            pd.DataFrame(rows_list).to_excel(f'./results/outlier_statistics_{len(strict_columns)}_strict_{counter}.xlsx')
+
         clean_data = np.setdiff1d(indices,out_indexlist)
 
         return X.loc[clean_data], y.loc[clean_data]
