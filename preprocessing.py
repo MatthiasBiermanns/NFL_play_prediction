@@ -337,7 +337,7 @@ class NFLPreprocessing(AbstractNFLPreprocessing):
         feature_names = self.get_prepro_feature_names_from_pipeline()
         return pd.DataFrame(transformed, columns=feature_names)
     
-    def outlier_sampler_iqr(self, X, y, strict_factor_iqr = 1.5, loose_factor_iqr = 3.0, strict_columns = [], omit_columns = []):
+    def outlier_sampler_iqr(self, X, y, strict_factor_iqr = 1.5, loose_factor_iqr = 3.0, strict_columns = ['score_differential', 'drive_play_count', 'spread_line', 'total_line'], omit_columns = []):
         #logger.info(f'Outlier removal with these params:')
         #logger.info('>>> strict_factor_iqr: ' + str(strict_factor_iqr))
         #logger.info('>>> loose_factor_iqr: ' + str(loose_factor_iqr))
