@@ -352,6 +352,10 @@
     "cp",
     "weather",
     "desc",
-    "week"
+    "week",
+    "defteam",
+    "posteam",
+    "game_seconds_remaining",
+    "quarter_seconds_remaining"
   ]
 }
