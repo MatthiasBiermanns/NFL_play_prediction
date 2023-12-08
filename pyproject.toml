@@ -18,6 +18,7 @@ seaborn = "^0.13.0"
 loguru = "^0.7.2"
 imblearn = "^0.0"
 xgboost = "^2.0.2"
+openpyxl = "^3.1.2"
 
 
 [tool.poetry.group.dev.dependencies]
