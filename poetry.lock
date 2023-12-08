@@ -349,6 +349,44 @@ unicode = ["unicodedata2 (>=15.1.0)"]
 woff = ["brotli (>=1.0.1)", "brotlicffi (>=0.8.0)", "zopfli (>=0.1.4)"]
 
 [[package]]
+name = "imbalanced-learn"
+version = "0.11.0"
+description = "Toolbox for imbalanced dataset in machine learning."
+optional = false
+python-versions = "*"
+files = [
+    {file = "imbalanced-learn-0.11.0.tar.gz", hash = "sha256:7582ae8858e6db0b92fef97dd08660a18297ee128d78c2abdc006b8bd86b8fdc"},
+    {file = "imbalanced_learn-0.11.0-py3-none-any.whl", hash = "sha256:20dc7dee3c838b4d213f021bb2b4007862704160d06bd292a6bdf931590b2516"},
+]
+
+[package.dependencies]
+joblib = ">=1.1.1"
+numpy = ">=1.17.3"
+scikit-learn = ">=1.0.2"
+scipy = ">=1.5.0"
+threadpoolctl = ">=2.0.0"
+
+[package.extras]
+docs = ["keras (>=2.4.3)", "matplotlib (>=3.1.2)", "memory-profiler (>=0.57.0)", "numpydoc (>=1.5.0)", "pandas (>=1.0.5)", "pydata-sphinx-theme (>=0.13.3)", "seaborn (>=0.9.0)", "sphinx (>=6.0.0)", "sphinx-copybutton (>=0.5.2)", "sphinx-gallery (>=0.13.0)", "sphinxcontrib-bibtex (>=2.4.1)", "tensorflow (>=2.4.3)"]
+examples = ["keras (>=2.4.3)", "matplotlib (>=3.1.2)", "pandas (>=1.0.5)", "seaborn (>=0.9.0)", "tensorflow (>=2.4.3)"]
+optional = ["keras (>=2.4.3)", "pandas (>=1.0.5)", "tensorflow (>=2.4.3)"]
+tests = ["black (>=23.3.0)", "flake8 (>=3.8.2)", "keras (>=2.4.3)", "mypy (>=1.3.0)", "pandas (>=1.0.5)", "pytest (>=5.0.1)", "pytest-cov (>=2.9.0)", "tensorflow (>=2.4.3)"]
+
+[[package]]
+name = "imblearn"
+version = "0.0"
+description = "Toolbox for imbalanced dataset in machine learning."
+optional = false
+python-versions = "*"
+files = [
+    {file = "imblearn-0.0-py2.py3-none-any.whl", hash = "sha256:d42c2d709d22c00d2b9a91e638d57240a8b79b4014122d92181fcd2549a2f79a"},
+    {file = "imblearn-0.0.tar.gz", hash = "sha256:d8fbb662919c1b16f438ad91a8256220e53bcf6815c9ad5502c518b798de34f2"},
+]
+
+[package.dependencies]
+imbalanced-learn = "*"
+
+[[package]]
 name = "ipykernel"
 version = "6.26.0"
 description = "IPython Kernel for Jupyter"
@@ -1616,7 +1654,34 @@ files = [
 [package.extras]
 dev = ["black (>=19.3b0)", "pytest (>=4.6.2)"]
 
+[[package]]
+name = "xgboost"
+version = "2.0.2"
+description = "XGBoost Python Package"
+optional = false
+python-versions = ">=3.8"
+files = [
+    {file = "xgboost-2.0.2-py3-none-macosx_10_15_x86_64.macosx_11_0_x86_64.macosx_12_0_x86_64.whl", hash = "sha256:630f04b04b0dccd532ad9e5c112030c04ea4e4764b6c3dc8ac49431ce60c03df"},
+    {file = "xgboost-2.0.2-py3-none-macosx_12_0_arm64.whl", hash = "sha256:ceefbf09a66af56109e9076680e44f14895a09e3c81e1af9e22ee57a86d86c9b"},
+    {file = "xgboost-2.0.2-py3-none-manylinux2014_aarch64.whl", hash = "sha256:6c98b48229eefbdc7a30ce7df88ec5c8e88c5a5d13a7dd78952de2f12ae72480"},
+    {file = "xgboost-2.0.2-py3-none-manylinux2014_x86_64.whl", hash = "sha256:351acb1696f6e83ce7650a8ca1fee5d4f9e4cef78d39c0973984c8eb226e2bff"},
+    {file = "xgboost-2.0.2-py3-none-win_amd64.whl", hash = "sha256:f07f42441f05a289bc4d34342c2335726763ae0759d7241ef25d0eab007dbec4"},
+    {file = "xgboost-2.0.2.tar.gz", hash = "sha256:55b5188e6da1d61f02f30a5dd8daffc3a6b5bb975a7249bf381dc1754dc89688"},
+]
+
+[package.dependencies]
+numpy = "*"
+scipy = "*"
+
+[package.extras]
+dask = ["dask", "distributed", "pandas"]
+datatable = ["datatable"]
+pandas = ["pandas"]
+plotting = ["graphviz", "matplotlib"]
+pyspark = ["cloudpickle", "pyspark", "scikit-learn"]
+scikit-learn = ["scikit-learn"]
+
 [metadata]
 lock-version = "2.0"
 python-versions = ">=3.11,<3.13"
-content-hash = "c9bb7109a80281f08852ad79bc9096be7cbaf84caf76055de788bf250650d3e4"
+content-hash = "e0c408759c5883aec367cff933e6075bca88f56909e9e2086d484b4999c9cd00"
