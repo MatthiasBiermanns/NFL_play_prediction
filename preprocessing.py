@@ -172,7 +172,7 @@ class NFLPreprocessing(AbstractNFLPreprocessing):
             axis=0,
             inplace=True,
         )
-
+        
         # drop plays with laterals
         self.combined_df.drop(
             self.combined_df[self.combined_df["lateral_reception"] == 1].index,
@@ -455,7 +455,7 @@ class NFLPreprocessing(AbstractNFLPreprocessing):
                     ),
                 ],
             )
-        return preprocessor
+        return preprocessor 
 
     def make_preprocessing_pipeline(self, model):
         self.reset_outlier_remover()
