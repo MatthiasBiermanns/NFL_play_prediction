@@ -40,6 +40,7 @@ import numpy as np
 import pandas as pd
 from pandas.api.types import is_string_dtype
 import json
+import os
 from sklearn.preprocessing import OneHotEncoder, MinMaxScaler, StandardScaler
 from sklearn.compose import ColumnTransformer
 from loguru import logger
@@ -47,6 +48,7 @@ import sklearn
 import re
 from imblearn import FunctionSampler
 import imblearn.pipeline
+from functools import reduce
 
 class AbstractNFLPreprocessing(ABC):
     """abstract class to create layout for NFLPreprocessing class"""
@@ -66,6 +68,7 @@ class AbstractNFLPreprocessing(ABC):
         self.encoder = OneHotEncoder(drop="first")
         self.minmax_scaler = MinMaxScaler()
         self.standardizer = StandardScaler()
+
 
         # declare outlier relevant features
         with open("encoding_normalization.json") as file:
@@ -129,12 +132,9 @@ class AbstractNFLPreprocessing(ABC):
 
 
 class NFLPreprocessing(AbstractNFLPreprocessing):
-    def __init__(self, file_list: list, strict_factor_iqr: float = 1.5, loose_factor_iqr: float = 3.0, strict_columns:list = []) -> None:
+    def __init__(self, file_list: list) -> None:
         super().__init__(
             file_list, 
-            strict_factor_iqr=strict_factor_iqr, 
-            loose_factor_iqr=loose_factor_iqr, 
-            strict_columns=strict_columns
         )
 
     def make_combined_df(self, csv_file_list: list):
@@ -337,16 +337,19 @@ class NFLPreprocessing(AbstractNFLPreprocessing):
         feature_names = self.get_prepro_feature_names_from_pipeline()
         return pd.DataFrame(transformed, columns=feature_names)
     
-    def outlier_sampler_iqr(self, X, y, strict_factor_iqr = 1.5, loose_factor_iqr = 3.0, strict_columns = [], omit_columns = []):
-        # logger.info('Outlier running with these params:')
-        # logger.info('>>> strict_factor_iqr: ' + str(strict_factor_iqr))
-        # logger.info('>>> loose_factor_iqr: ' + str(loose_factor_iqr))
-        # logger.info('>>> strict_columns: ' + str(strict_columns))
-        # logger.info('>>> omit_columns: ' + str(omit_columns))
+    def outlier_sampler_iqr(self, X, y, save_stats = False, strict_factor_iqr = 1.5, loose_factor_iqr = 3.0, strict_columns = ['score_differential', 'drive_play_count', 'spread_line', 'total_line'], omit_columns = []):
+        #logger.info(f'Outlier removal with these params:')
+        #logger.info('>>> save_stats: ' + str(save_stats))
+        #logger.info('>>> strict_factor_iqr: ' + str(strict_factor_iqr))
+        #logger.info('>>> loose_factor_iqr: ' + str(loose_factor_iqr))
+        #logger.info('>>> strict_columns: ' + str(strict_columns))
+        #logger.info('>>> omit_columns: ' + str(omit_columns))
 
         features = X.columns
         df = X.copy()
         df['Outcome'] = y
+
+        rows_list = []
 
         indices = [x for x in df.index]
         out_indexlist = []
@@ -375,10 +378,47 @@ class NFLPreprocessing(AbstractNFLPreprocessing):
             
             upper, lower = Q3 + cut_off, Q1 - cut_off
             outliers_index = df[col][(df[col] < lower) | (df[col] > upper)].index.tolist()
-            out_indexlist.extend(outliers_index)
 
-        #using set to remove duplicates
-        out_indexlist = list(set(out_indexlist))
+
+            # collect statistics
+            old_unique_outliers = len(out_indexlist)
+            out_indexlist.extend(outliers_index)
+            
+            #using set to remove duplicates
+            out_indexlist = list(set(out_indexlist))
+
+            if save_stats:
+                new_row = {
+                    'feature': col, 
+                    'lower cutoff': lower,
+                    'upper cutoff': upper,
+                    'too low': len(df[col][df[col] < lower].index.tolist()), 
+                    'included': len(df[col][(df[col] >= lower) & (df[col] <= upper)].index.tolist()), 
+                    'too high': len(df[col][df[col] > upper].index.tolist()),
+                    'excluded by feature': len(df[col][(df[col] < lower) | (df[col] > upper)].index.tolist()),
+                    'unique outliers': len(out_indexlist) - old_unique_outliers
+                }
+                rows_list = rows_list + [new_row]
+
+
+        # counting excluded outliers
+        if save_stats:
+            new_row = {
+                'feature': 'overall', 
+                'lower cutoff': '',
+                'upper cutoff': '',
+                'too low': reduce(lambda a, b: a+b, [row['too low'] for row in rows_list]), 
+                'included': '',
+                'too high': reduce(lambda a, b: a+b, [row['too high'] for row in rows_list]),
+                'unique outliers': len(out_indexlist)
+            }
+            rows_list = rows_list + [new_row]
+
+            #check if file exists, to not overwrite it
+            counter = 0
+            while(os.path.isfile(f'./results/outlier_statistics_{len(strict_columns)}_strict_{counter}.xlsx')):
+                counter = counter + 1
+            pd.DataFrame(rows_list).to_excel(f'./results/outlier_statistics_{len(strict_columns)}_strict_{counter}.xlsx')
 
         clean_data = np.setdiff1d(indices,out_indexlist)
 
@@ -417,7 +457,7 @@ class NFLPreprocessing(AbstractNFLPreprocessing):
             )
         return preprocessor
 
-    def make_preprocessing_pipeline(self):
+    def make_preprocessing_pipeline(self, model):
         self.reset_outlier_remover()
         return imblearn.pipeline.Pipeline(steps=[
                 (
@@ -427,6 +467,10 @@ class NFLPreprocessing(AbstractNFLPreprocessing):
                 (
                     "preprocessor", 
                     self.prepro
+                ),
+                (
+                    "regressor",
+                    model
                 )
             ]
         )

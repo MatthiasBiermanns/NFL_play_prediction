@@ -1,0 +1,17 @@
+0	posteam_type_home	q
+1	roof_dome q
+2	roof_open	q
+3	roof_outdoors	q
+4	season_type_REG	q
+5	score_differential	q
+6	yardline_100	q
+7	down	q
+8	ydstogo	q
+9	td_prob	q
+10	spread_line	q
+11	total_line	q
+12	season	q
+13	posteam_timeouts_remaining	q
+14	defteam_timeouts_remaining	q
+15	half_seconds_remaining	q
+16	drive_start_yard_line	q
