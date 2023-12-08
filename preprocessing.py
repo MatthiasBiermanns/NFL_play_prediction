@@ -222,7 +222,7 @@ class NFLPreprocessing(AbstractNFLPreprocessing):
                 # Handle the case where the value is NaN or not a string
                 return value
 
-        self.combined_df.loc["drive_start_yard_line"] = self.combined_df.apply(
+        self.combined_df["drive_start_yard_line"] = self.combined_df.apply(
             transform_dsyl, axis=1
         )
 
